@@ -24,9 +24,6 @@ Now we are going to review a Pull Request (PR) that has been posted on GitHub fo
 ## Preparation
 
 Before you review the changes for this PR, you must first:
-- Create a file in the root of this project named with this pull request's branch (make sure to remove any special characters and replace them with a hyphen), followed with `.spec.md`. So if the branch name for the pull request is `issue/123-auth`, then you should create a file named `issue-123-auth.spec.md` in the root of this project.
-    - if this file already exists, you should not create the new file, and instead you will add your output to that existing file.
-- All your output throughout this review should be written to the file you just created.
 - Review the documentation in this repo found in `.md` files (but ignore files that end in `.spec.md`).
 - Review this repo’s Style Guide found in ⁠`styleguide.spec.md`.
 	- If this file does not exist, notify me that it must be created, and do not proceed. If missing, fall back to default project linters/formatters and established conventions where possible.
@@ -81,7 +78,7 @@ Once you have completed the preparation phase:
 - Previously provided feedback:
 	- If feedback has previously been provided in the PR and the PR owner has said they have addressed that feedback (via comment or thumbs-up reaction), confirm it has been correctly addressed.
 	- Link each addressed item to the specific commit, diff, or code reference that resolves it.
-	- Provide a concise summary and append it to the “Feedback Addressed” section at the bottom of the output file.
+	- Provide a concise summary and include it in the “Feedback Addressed” section of the review summary.
 
 Next, execute the review of this PR. Identify any of the following:
 - Security issues introduced (code, dependencies, secrets in diff, supply chain integrity)
@@ -104,7 +101,6 @@ For any issue found:
 	- Medium: should fix soon
 	- Low/Nit: optional/style
 - Provide a concise summary, evidence (file:path#line-range, diff, commit), and a recommended solution.
-- Append the issue to the “New Findings” section at the bottom of the output file.
 
 Additional Requirements:
 - Do not allow duplicate feedback.
@@ -121,10 +117,13 @@ Additional Requirements:
 	- Verify all required checks are green in the PR.
 	- List any failing checks with links in the “CI Status and Required Checks” section.
 
-## Output Structure
-Write your results to a file named with this pull request's branch (removing any special characters and replacing them with a hyphen), followed with `.spec.md`. So if the branch name for the pull request is `issue/123-auth`, then you should create a file named `issue-123-auth.spec.md` and write your results to it.
+## Output — Submit as GitHub PR Review
 
-Use exactly these sections and formats in your output:
+Do NOT write results to a local file. Instead, submit all feedback directly to the GitHub PR as a single review using the GitHub API.
+
+### Review Summary (the review body)
+
+The review body should contain all sections **except** New Findings (those go as inline comments). Use exactly these sections and formats:
 
 **Preparation Findings**
 - {{bulleted notes on style guide presence, docs completeness, environment setup notes}}
@@ -133,14 +132,6 @@ Use exactly these sections and formats in your output:
 - Title: {{prior finding title or link}}
 - Evidence: {{commit/diff/ref}}
 - Resolution summary: {{how it was addressed}}
-
-**New Findings**
-- Title: {{short, specific}}
-- Severity: Blocker | High | Medium | Low
-- Files/Lines: {{path}}:{{line-range}}
-- Summary: {{what and why it matters}}
-- Evidence: {{diff/commit/ref}}
-- Recommendation: {{actionable fix}}
 
 **Test/Lint/Typecheck/Build Status**
 - Build: {{pass/fail}} — {{notes}}
@@ -166,10 +157,42 @@ Use exactly these sections and formats in your output:
 - Recommendation: Approve | Request Changes | Comment
 - Rationale: {{concise justification}}
 
-**Post Code Review**
-- Pause and wait for me to review and approve your feedback.
-- Once approved, use the GitHub CLI to post the feedback as a review with Changes Requested to the PR (IMPORTANT: These should not just be added as general comments, they must be added as Change Requests).
-	- Each New Finding should be added as a separate change request comment, so each can be worked on and resolved separately. All other data can be added to the Change Request summary comment.
+### Inline Review Comments (one per New Finding)
+
+Each New Finding must be submitted as a separate inline review comment on the relevant file and line. Each comment body should use this format:
+
+```
+**{{Title}}**
+**Severity:** Blocker | High | Medium | Low
+**Files/Lines:** {{path}}:{{line-range}}
+**Summary:** {{what and why it matters}}
+**Evidence:** {{diff/commit/ref}}
+**Recommendation:** {{actionable fix}}
+```
+
+If a finding cannot be tied to a specific file/line (e.g., missing test file, general architectural concern), include it in the review body summary instead.
+
+### How to Submit
+
+Use `gh api` to submit a single pull request review with all inline comments at once:
+
+```bash
+gh api repos/{owner}/{repo}/pulls/{pr_number}/reviews \
+  --method POST \
+  -f event="REQUEST_CHANGES" \
+  -f body="<review summary from above>" \
+  --jq '.id' \
+  -f 'comments=[
+    {
+      "path": "<file path relative to repo root>",
+      "line": <line number in the diff>,
+      "body": "**<Title>**\n**Severity:** <level>\n**Files/Lines:** <path:line-range>\n**Summary:** <what and why>\n**Evidence:** <diff/commit/ref>\n**Recommendation:** <actionable fix>"
+    }
+  ]'
+```
+
+- If there are no New Findings (nothing to request changes on), use `event="APPROVE"` instead of `event="REQUEST_CHANGES"`.
+- Do NOT pause and wait for approval before submitting — post the review immediately after completing the analysis.
 
 **Commands Reference (for convenience)**
 - PR info: ⁠`gh pr view {{URL_TO_PR}} --json number,title,author,baseRefName,headRefName,mergeable,commits,reviews,comments,files,statusCheckRollup`

@@ -71,7 +71,36 @@ Analyze each area methodically. For each area, read the actual source files:
 - Scripts that could corrupt data if run twice
 - Missing error handling
 
-### Phase 3: Document Findings
+### Phase 3: Startup-to-Shutdown Trace
+
+Trace the full application lifecycle from entry point to shutdown:
+- Follow execution from `index.ts` → `serve.ts` (or equivalent) → all registered dependencies
+- Verify every subsystem is instantiated, wired, and started
+- Verify all cleanup/shutdown handlers are registered and complete
+- Check that every service, queue, connection, and worker created during startup has a corresponding teardown path
+- Do not audit subsystems only in isolation — verify they are actually connected to the running application
+
+### Phase 4: Boundary Validation Checklist
+
+Enumerate ALL system boundaries and verify runtime validation exists at each:
+- **HTTP ingress**: Route parameters, query strings, request bodies (Zod schemas)
+- **Queue ingress**: Job payloads from BullMQ (validate structure before processing)
+- **External API responses**: Responses from third-party APIs and external services
+- **Redis reads**: Data read from Redis caches or pub/sub channels
+- **Database reads**: Data from queries that could return unexpected shapes (especially cross-service)
+- **Inter-service boundaries**: Data passed between internal services or from external/legacy systems
+
+For each boundary, confirm that malformed or unexpected data is caught before it propagates.
+
+### Phase 5: Cleanup & Teardown Review
+
+Explicitly review all shutdown, dispose, and cleanup paths with the same rigor as initialization:
+- Check for `Promise.all` vs `Promise.allSettled` in cleanup functions (partial failure must not prevent remaining cleanup)
+- Verify `clearInterval`/`clearTimeout`/`unref()` on timers and probes
+- Verify all registered dependencies (connections, workers, watchers) are included in the cleanup path
+- Check that error paths properly release resources (file handles, connections, locks)
+
+### Phase 6: Document Findings
 
 For each issue found, assess:
 
@@ -128,6 +157,24 @@ Write all findings to a new file named `issues-functional.spec.md` in the projec
 
 ---
 ```
+
+## Cross-Concern Analysis — MANDATORY for every recommendation
+
+Before recommending any functional fix, evaluate it against all five audit dimensions:
+- **Security**: Does this fix expose sensitive data in logs or error messages? (e.g., adding recipient-level detail to failure logs may leak PII)
+- **Performance**: Does this fix degrade throughput or latency?
+- **Reliability**: Does this fix affect ordering, atomicity, or crash recovery?
+- **Best Practices**: Does this fix duplicate code or violate DRY?
+- **Consistency**: Were all related code paths updated (mocks, cleanup functions, adjacent methods)?
+
+If a recommendation could negatively impact another dimension, explicitly note the tradeoff and suggest mitigations.
+
+## Post-Fix Verification — include with every recommendation
+
+Each recommended fix should include verification guidance:
+- **Edge cases to test**: Empty inputs, concurrent access, process crashes, maximum limits
+- **Related code to update**: Mocks, test fixtures, cleanup functions, adjacent methods that share the same pattern
+- **Cross-concern check**: Confirm the fix doesn't introduce issues in other audit dimensions
 
 ## Important Rules
 

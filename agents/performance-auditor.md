@@ -70,6 +70,24 @@ After completing the full analysis, write all findings to a file named `./issues
 ---
 ```
 
+**Cross-Concern Analysis — MANDATORY for every recommendation:**
+
+Before recommending any performance optimization, evaluate it against all five audit dimensions:
+- **Correctness**: Does this optimization change observable behavior or break ordering guarantees? (e.g., `Promise.all()` on sequential status transitions breaks required ordering)
+- **Security**: Does this optimization expose sensitive data or weaken validation? (e.g., adding detailed error logging may leak PII)
+- **Reliability**: Does this optimization affect atomicity, crash recovery, or error handling? (e.g., parallelizing calls that must be sequential can cause race conditions)
+- **Best Practices**: Does this optimization duplicate code or violate DRY? Does refactoring introduce new edge cases?
+- **System Constraints**: Does this optimization interact with timeout, lock, or retry configurations in other parts of the system? (e.g., per-request timeouts must be modeled against total job execution time and queue lock durations)
+
+If a performance recommendation could negatively impact another dimension, explicitly note the tradeoff and suggest mitigations.
+
+**Post-Fix Verification — include with every recommendation:**
+
+Each recommended fix should include verification guidance:
+- **Edge cases to test**: Empty inputs, concurrent access, process crashes, maximum limits
+- **Related code to update**: Mocks, cleanup functions, adjacent methods that share the same pattern
+- **Downstream constraints**: Timeouts, lock durations, retry budgets, and other system-level settings that may need adjustment
+
 **Important guidelines:**
 - Read through ALL source files systematically. Do not skip directories.
 - Do not flag stylistic preferences as performance issues.

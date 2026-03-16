@@ -81,7 +81,14 @@ Systematically review the codebase across these dimensions:
 - Incorrect retry/timeout configurations
 - Missing dead letter queue handling
 
-### 9. Configuration & DevOps
+### 9. Cleanup & Teardown
+- Review ALL shutdown, dispose, and cleanup paths with the same rigor as initialization
+- Check for `Promise.all` vs `Promise.allSettled` in cleanup functions — partial failure must not prevent remaining cleanup
+- Verify `clearInterval`/`clearTimeout`/`unref()` on timers, probes, and periodic tasks
+- Verify all registered dependencies are included in the cleanup path
+- Check that error paths properly release resources
+
+### 10. Configuration & DevOps
 - Missing environment variable validation
 - Hardcoded values that should be configurable
 - Docker configuration issues
@@ -143,6 +150,24 @@ Write all findings to a new file named `issues-best-practices.spec.md` with this
 
 ---
 ```
+
+## Cross-Concern Analysis — MANDATORY for every recommendation
+
+Before recommending any best practices fix, evaluate it against all five audit dimensions:
+- **Security**: Does this fix expose sensitive data or weaken validation?
+- **Performance**: Does this fix degrade throughput or latency?
+- **Reliability**: Does this fix affect ordering, atomicity, or crash recovery?
+- **Functionality**: Does this fix change observable behavior?
+- **Consistency**: Were all related code paths considered (mocks, cleanup functions, adjacent methods)?
+
+If a recommendation could negatively impact another dimension, explicitly note the tradeoff and suggest mitigations.
+
+## Post-Fix Verification — include with every recommendation
+
+Each recommended fix should include verification guidance:
+- **Edge cases to test**: Empty inputs, concurrent access, process crashes, maximum limits — especially for refactors and consolidations
+- **Related code to update**: Mocks, test fixtures, cleanup functions, adjacent methods that share the same pattern
+- **Regression risk**: When consolidating duplicated code, verify the shared implementation handles all edge cases from the original independent implementations
 
 ## Important Rules
 

@@ -23,7 +23,18 @@ Follow this structured approach:
 - Map all API endpoints and their access controls
 - Use Context7 MCP to look up current documentation for frameworks and libraries used (Hono, Drizzle ORM, Better-Auth, BullMQ, etc.) to understand their known security considerations
 
-### Phase 2: Attack Surface Analysis
+### Phase 2: Boundary Validation Inventory
+
+Before diving into attack surface analysis, enumerate ALL system boundaries and verify runtime validation exists at each:
+- **HTTP ingress**: Route parameters, query strings, request bodies (Zod schemas)
+- **Queue ingress**: Job payloads from BullMQ (validate structure before processing)
+- **External API responses**: Responses from third-party APIs and external services
+- **Redis reads**: Data read from Redis caches or pub/sub channels
+- **Inter-service boundaries**: Data from external/legacy systems or internal service calls
+
+For each boundary, confirm that malformed or unexpected data is caught and cannot propagate into trusted code paths. Do not stop at one boundary type — check ALL of them systematically.
+
+### Phase 3: Attack Surface Analysis
 Systematically review these areas:
 
 **Authentication & Session Management**
@@ -84,14 +95,14 @@ Systematically review these areas:
 - Insecure random number generation
 - Key management issues
 
-### Phase 3: Exploitation Assessment
+### Phase 4: Exploitation Assessment
 For each finding, determine:
 - Can it be exploited remotely or does it require local access?
 - Does it require authentication?
 - What is the complexity of exploitation?
 - What is the blast radius?
 
-### Phase 4: Reporting
+### Phase 5: Reporting
 
 Write all findings to `./issues-security.spec.md` with this exact format:
 
@@ -158,6 +169,25 @@ Write all findings to `./issues-security.spec.md` with this exact format:
 - **Likely**: Exploitable with moderate skill, attack surface is accessible to authenticated users
 - **Possible**: Requires specific conditions, insider knowledge, or chained vulnerabilities
 - **Unlikely**: Theoretical vulnerability requiring highly specific circumstances or significant access
+
+## Cross-Concern Analysis — MANDATORY for every recommendation
+
+Before recommending any security fix, evaluate it against all five audit dimensions:
+- **Performance**: Does this fix degrade throughput or latency? (e.g., adding timeouts per-request must be modeled against total job execution time and queue lock durations)
+- **Reliability**: Does this fix affect ordering, atomicity, or crash recovery?
+- **Functionality**: Does this fix change observable behavior? (e.g., stricter validation may reject previously-accepted inputs)
+- **Best Practices**: Does this fix duplicate code or violate DRY?
+- **Data Exposure**: Does the fix for one issue inadvertently introduce data exposure in another code path? (e.g., adding detailed failure logging may leak PII even while fixing a different security issue)
+
+If a recommendation could negatively impact another dimension, explicitly note the tradeoff and suggest mitigations.
+
+## Post-Fix Verification — include with every recommendation
+
+Each recommended fix should include verification guidance:
+- **Edge cases to test**: Empty inputs, concurrent access, process crashes, maximum limits
+- **Related code to update**: Mocks, test fixtures, cleanup functions, adjacent methods that share the same pattern
+- **Cross-concern check**: Confirm the fix doesn't introduce issues in other audit dimensions
+- **Downstream constraints**: Timeouts, lock durations, retry budgets, and other system-level settings that may need adjustment
 
 ## Critical Rules
 

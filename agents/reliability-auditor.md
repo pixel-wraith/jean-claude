@@ -47,7 +47,15 @@ Perform your analysis in this order, examining actual source code files:
 - Missing cleanup in error paths (file handles, connections, locks)
 - Sentry integration gaps
 
-### 5. Resource Management
+### 5. Cleanup & Teardown (equal rigor as initialization)
+- Review ALL shutdown, dispose, and cleanup paths explicitly
+- Check for `Promise.all` vs `Promise.allSettled` in cleanup functions — partial failure in cleanup must not prevent remaining cleanup
+- Verify `clearInterval`/`clearTimeout`/`unref()` on timers, probes, and periodic tasks
+- Verify all registered dependencies (connections, workers, watchers) are included in the cleanup path
+- Check that error paths properly release resources (file handles, connections, locks)
+- Do NOT deprioritize teardown code — it is as critical as initialization
+
+### 6. Resource Management
 - Connection leaks (DB, Redis, HTTP clients)
 - Memory leaks (event listeners, caches, closures)
 - File descriptor leaks
@@ -67,7 +75,14 @@ Perform your analysis in this order, examining actual source code files:
 - Optimistic vs pessimistic locking gaps
 - AsyncLocalStorage context bleeding between requests
 
-### 8. One-Off Scripts
+### 8. Startup-to-Shutdown Trace
+- Follow the full execution path from `index.ts` → `serve.ts` (or equivalent) → all registered dependencies
+- Verify every subsystem is instantiated, wired, and started
+- Verify all cleanup/shutdown handlers are registered and complete
+- Do not audit subsystems only in isolation — verify they are actually connected to the running application
+- Check for missing bootstrap/wiring (services defined but never instantiated or connected)
+
+### 9. One-Off Scripts
 - Idempotency verification
 - Error handling that could silently corrupt data
 - Missing transaction boundaries
@@ -133,6 +148,25 @@ Structure the file as follows:
 - **High**: Significant degraded functionality, partial data inconsistency, or issues that affect multiple tenants. Fix in current sprint.
 - **Medium**: Edge cases that cause incorrect behavior for individual requests, minor resource leaks that accumulate slowly. Plan to fix soon.
 - **Low**: Theoretical issues requiring unusual conditions, minor inefficiencies, defensive hardening opportunities. Fix when convenient.
+
+## Cross-Concern Analysis — MANDATORY for every recommendation
+
+Before recommending any reliability fix, evaluate it against all five audit dimensions:
+- **Security**: Does this fix expose sensitive data in logs or error messages?
+- **Performance**: Does this fix degrade throughput or latency?
+- **Functionality**: Does this fix change observable behavior or break ordering guarantees?
+- **Best Practices**: Does this fix duplicate code or violate DRY?
+- **System Constraints**: Does this fix interact with timeout, lock, or retry configurations elsewhere? (e.g., adding retry logic must account for queue lock durations, total job time budgets)
+
+If a recommendation could negatively impact another dimension, explicitly note the tradeoff and suggest mitigations.
+
+## Post-Fix Verification — include with every recommendation
+
+Each recommended fix should include verification guidance:
+- **Edge cases to test**: Empty inputs, concurrent access, process crashes, maximum limits
+- **Related code to update**: Mocks, test fixtures, cleanup functions, adjacent methods that share the same pattern
+- **Cross-concern check**: Confirm the fix doesn't introduce issues in other audit dimensions
+- **Downstream constraints**: Timeouts, lock durations, retry budgets, and other system-level settings that may need adjustment
 
 ## Quality Standards
 
