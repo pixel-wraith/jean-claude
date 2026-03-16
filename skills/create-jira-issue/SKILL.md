@@ -37,7 +37,7 @@ Ask the user: **"Would you like me to analyze the current codebase to gather tec
 Run the following check before calling the script:
 
 ```bash
-for var in JIRA_API_TOKEN JIRA_EMAIL JIRA_BASE_URL JIRA_BOARD_ID; do
+for var in JIRA_API_TOKEN JIRA_EMAIL JIRA_BASE_URL JIRA_PROJECT_ID JIRA_BOARD_ID; do
   if [[ -z "${!var:-}" ]]; then
     echo "MISSING: $var"
   fi
@@ -58,7 +58,36 @@ bash /Users/wraith/the_lab/jean-claude/skills/create-jira-issue/create-jira-issu
 - The description is argument 2 (the full issue body).
 - Both arguments must be properly quoted to handle special characters and newlines.
 
-## Step 6: Report Result
+## Step 6: Sprint Assignment (Optional)
 
-- If the script succeeds, display the issue URL returned by the script.
-- If the script fails, display the error output and suggest the user check their environment variables and Jira permissions.
+After the issue is created successfully:
+
+1. Fetch active and future sprints for the board:
+   ```bash
+   curl -s \
+     -H "Authorization: Basic $(printf '%s:%s' "$JIRA_EMAIL" "$JIRA_API_TOKEN" | base64)" \
+     -H "Content-Type: application/json" \
+     "${JIRA_BASE_URL}/rest/agile/1.0/board/${JIRA_BOARD_ID}/sprint?state=active,future"
+   ```
+
+2. Parse the response and present a numbered list of sprints to the user (showing sprint name and state).
+
+3. Ask the user: **"Would you like to add this issue to a sprint?"** and present the list with a "Skip" option.
+
+4. If the user selects a sprint, assign the issue:
+   ```bash
+   curl -s -w "\n%{http_code}" \
+     -X POST \
+     -H "Authorization: Basic $(printf '%s:%s' "$JIRA_EMAIL" "$JIRA_API_TOKEN" | base64)" \
+     -H "Content-Type: application/json" \
+     -d '{"issues":["<ISSUE_KEY>"]}' \
+     "${JIRA_BASE_URL}/rest/agile/1.0/sprint/<SPRINT_ID>/issue"
+   ```
+
+5. If the user skips, proceed without sprint assignment.
+
+## Step 7: Report Result
+
+- Display the issue URL returned by the script.
+- If a sprint was assigned, confirm which sprint.
+- If any step fails, display the error output and suggest the user check their environment variables and Jira permissions.
