@@ -25,7 +25,7 @@ PAYLOAD=$(jq -n \
       project: { key: $project },
       summary: $summary,
       description: $description,
-      issuetype: { name: "Task" }
+      issuetype: { name: "Story" }
     }
   }')
 
