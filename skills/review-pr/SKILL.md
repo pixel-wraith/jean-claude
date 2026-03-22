@@ -117,81 +117,75 @@ Additional Requirements:
 	- Verify all required checks are green in the PR.
 	- List any failing checks with links in the “CI Status and Required Checks” section.
 
-## Output — Submit as GitHub PR Review
+## Output — Submit Feedback as Individual PR Review Comments
 
-Do NOT write results to a local file. Instead, submit all feedback directly to the GitHub PR as a single review using the GitHub API.
+Do NOT write results to a local file. Do NOT combine all feedback into a single comment. Each piece of feedback must be its own separate comment on the PR.
 
-### Review Summary (the review body)
+### What to Submit
 
-The review body should contain all sections **except** New Findings (those go as inline comments). Use exactly these sections and formats:
+Every issue or piece of feedback you identify during the review gets submitted as its own individual inline comment on the specific file and line where the issue exists. No summary comments, no combined reviews — just targeted, actionable comments.
 
-**Preparation Findings**
-- {{bulleted notes on style guide presence, docs completeness, environment setup notes}}
-
-**Feedback Addressed**
-- Title: {{prior finding title or link}}
-- Evidence: {{commit/diff/ref}}
-- Resolution summary: {{how it was addressed}}
-
-**Test/Lint/Typecheck/Build Status**
-- Build: {{pass/fail}} — {{notes}}
-- Typecheck: {{pass/fail}} — {{notes}}
-- Lint: {{pass/fail}} — {{notes}}
-- Format: {{clean/needs format}} — {{notes}}
-- Tests: {{pass/fail}}; coverage {{% if available}} — {{notes}}
-- Security (npm audit): {{issues/none}} — {{notes}}
-
-**CI Status and Required Checks**
-- Required checks: {{list}}
-- Status: {{all green / failing}}
-- Links: {{URLs to failing checks if any}}
-
-**Risk and Rollout**
-- Author-declared risk: {{low/med/high}}
-- Migration/Feature flags: {{present? default-off? cleanup plan?}}
-- Rollout/rollback plan: {{summary}}
-- Observability impacts: {{logging/metrics/tracing updates}}
-
-**Summary and Recommendation**
-- Overall assessment: {{brief}}
-- Recommendation: Approve | Request Changes | Comment
-- Rationale: {{concise justification}}
-
-### Inline Review Comments (one per New Finding)
-
-Each New Finding must be submitted as a separate inline review comment on the relevant file and line. Each comment body should use this format:
+Each comment body should follow this format:
 
 ```
-**{{Title}}**
-**Severity:** Blocker | High | Medium | Low
-**Files/Lines:** {{path}}:{{line-range}}
-**Summary:** {{what and why it matters}}
-**Evidence:** {{diff/commit/ref}}
-**Recommendation:** {{actionable fix}}
+**{{Title}}** ({{Severity}})
+
+{{Clear description of the issue — what is wrong and why it matters}}
+
+**Recommendation:** {{Specific, actionable fix the author can apply}}
 ```
 
-If a finding cannot be tied to a specific file/line (e.g., missing test file, general architectural concern), include it in the review body summary instead.
+Severity scale for the title:
+- **Blocker** — must fix before merge
+- **High** — strongly recommend fixing before merge
+- **Medium** — should fix soon
+- **Low/Nit** — optional/style
 
 ### How to Submit
 
-Use `gh api` to submit a single pull request review with all inline comments at once:
+Submit all comments as a single review with event `REQUEST_CHANGES`. Each finding is an entry in the `comments` array. The review `body` should be a single short sentence summarizing the review (e.g., "Found 3 issues that should be addressed before merging."). Do NOT put detailed findings, status reports, or section headers in the review body.
+
+Build a JSON file with all comments, then submit:
+
+```bash
+# Write the review payload to a temp file
+cat > /tmp/review-payload.json << 'REVIEW_EOF'
+{
+  "event": "REQUEST_CHANGES",
+  "body": "<one-sentence summary, e.g. 'Found N issues to address before merging.'>",
+  "comments": [
+    {
+      "path": "<file path relative to repo root>",
+      "line": <line number in the diff>,
+      "body": "**<Title>** (<Severity>)\n\n<Description of the issue>\n\n**Recommendation:** <actionable fix>"
+    }
+  ]
+}
+REVIEW_EOF
+
+# Submit the review
+gh api repos/{owner}/{repo}/pulls/{pr_number}/reviews \
+  --method POST \
+  --input /tmp/review-payload.json
+```
+
+### When There Are No Issues
+
+If you find no issues worth commenting on, submit an `APPROVE` review with a brief body explaining why:
 
 ```bash
 gh api repos/{owner}/{repo}/pulls/{pr_number}/reviews \
   --method POST \
-  -f event="REQUEST_CHANGES" \
-  -f body="<review summary from above>" \
-  --jq '.id' \
-  -f 'comments=[
-    {
-      "path": "<file path relative to repo root>",
-      "line": <line number in the diff>,
-      "body": "**<Title>**\n**Severity:** <level>\n**Files/Lines:** <path:line-range>\n**Summary:** <what and why>\n**Evidence:** <diff/commit/ref>\n**Recommendation:** <actionable fix>"
-    }
-  ]'
+  -f event="APPROVE" \
+  -f body="No issues found. <one-sentence rationale>"
 ```
 
-- If there are no New Findings (nothing to request changes on), use `event="APPROVE"` instead of `event="REQUEST_CHANGES"`.
+### Rules
+
+- Every finding = its own inline comment. Never combine multiple findings into one comment.
+- Always submit as `REQUEST_CHANGES` when there are findings, regardless of severity.
+- If a finding cannot be tied to a specific file/line (e.g., missing test file, general architectural concern), post it as a standalone PR comment using `gh pr comment` instead — still one comment per finding.
+- Do NOT include build/lint/test status, CI check summaries, preparation notes, or risk assessments in the review. Only submit actionable feedback on the code.
 - Do NOT pause and wait for approval before submitting — post the review immediately after completing the analysis.
 
 **Commands Reference (for convenience)**
