@@ -104,6 +104,10 @@ Construct the new description using this exact structure:
 ## 💻 Technical Notes
 - {{LIST OF TECHNICAL IMPLEMENTATION DETAILS}}
 
+### Acceptance Criteria
+
+- {{LIST OF CRITERIA THAT MUST BE MET TO MEET THE LISTED REQUIREMENTS}}
+
 ## 🧪 Testing Requirements
 *At minimum, the following use cases should be covered by tests:*
 - {{LIST OF USE CASES THAT TESTS MUST COVER}}
