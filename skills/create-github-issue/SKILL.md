@@ -104,16 +104,29 @@ If the `gh` CLI is not installed or not authenticated, inform the user and stop.
 
 ## Step 6: Create the Issue
 
-Call the bash script, passing the repo, title, and body as arguments:
+Use the GitHub CLI directly to create the issue:
 
 ```bash
-bash /Users/wraith/the_lab/jean-claude/skills/create-github-issue/create-github-issue.sh "<owner/repo>" "<title>" "<body>"
+gh issue create --repo "<owner/repo>" --title "<title>" --body "<body>"
 ```
 
-- Argument 1 is the `owner/repo` resolved in Step 1.
-- Argument 2 is the title (one-line summary).
-- Argument 3 is the body (full issue description, supports GitHub-flavored Markdown).
-- All arguments must be properly quoted to handle special characters and newlines.
+- Use the `owner/repo` resolved in Step 1.
+- The title should be a concise one-line summary.
+- The body is the full issue description and supports GitHub-flavored Markdown.
+- For multi-line bodies, pass the body via a heredoc or `--body-file` to preserve formatting:
+
+```bash
+gh issue create --repo "<owner/repo>" --title "<title>" --body "$(cat <<'EOF'
+<body content here>
+EOF
+)"
+```
+
+- You may also pass additional flags supported by `gh issue create`, such as:
+  - `--assignee <handle>` to assign the issue
+  - `--label <name>` to add labels
+  - `--milestone <name>` to set a milestone
+  - `--project <name>` to add to a project
 
 ## Step 7: Report Result
 

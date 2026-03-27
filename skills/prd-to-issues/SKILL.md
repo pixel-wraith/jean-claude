@@ -9,9 +9,15 @@ Break a PRD into independently-grabbable GitHub issues using vertical slices (tr
 
 ## Process
 
-### 1. Locate the PRD
+### 1. Locate the PRD and resolve the target repo
 
 Ask the user for the PRD GitHub issue number (or URL).
+
+Determine the target `owner/repo` from the issue URL, or by running:
+
+```bash
+gh repo view --json nameWithOwner --jq '.nameWithOwner'
+```
 
 If the PRD is not already in your context window, fetch it with `gh issue view <number>` (with comments).
 
@@ -49,11 +55,62 @@ Ask the user:
 
 Iterate until the user approves the breakdown.
 
-### 5. Create the GitHub issues
+### 5. Resolve the parent issue node ID
 
-For each approved slice, create a GitHub issue using `gh issue create`. Use the issue body template below.
+Before creating sub-issues, fetch the GraphQL node ID of the parent PRD issue. You will need this to link each sub-issue to the parent.
+
+```bash
+gh api graphql -f query='
+  query($owner: String!, $repo: String!, $number: Int!) {
+    repository(owner: $owner, name: $repo) {
+      issue(number: $number) {
+        id
+      }
+    }
+  }
+' -f owner="<owner>" -f repo="<repo>" -F number=<prd-issue-number>
+```
+
+Save the returned `id` value (e.g. `I_kwDOxxxxxxx`) for use in step 6.
+
+### 6. Create the GitHub issues as sub-issues
+
+For each approved slice, create a GitHub issue using `gh issue create`, then immediately add it as a sub-issue of the parent PRD issue.
 
 Create issues in dependency order (blockers first) so you can reference real issue numbers in the "Blocked by" field.
+
+For each slice:
+
+**a) Create the issue:**
+
+```bash
+gh issue create --repo "<owner/repo>" --title "<title>" --body "$(cat <<'EOF'
+<body from template below>
+EOF
+)"
+```
+
+Capture the returned issue URL.
+
+**b) Add as sub-issue of the parent PRD:**
+
+```bash
+gh api graphql -f query='
+  mutation($parentId: ID!, $subIssueUrl: String!) {
+    addSubIssue(input: {issueId: $parentId, subIssueUrl: $subIssueUrl}) {
+      issue {
+        id
+      }
+      subIssue {
+        id
+        url
+      }
+    }
+  }
+' -f parentId="<parent-node-id>" -f subIssueUrl="<newly-created-issue-url>"
+```
+
+If the `addSubIssue` mutation fails, log the error and continue creating the remaining issues. Report any failures to the user at the end.
 
 <issue-template>
 ## Parent PRD
