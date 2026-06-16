@@ -1,80 +1,112 @@
 ---
 name: create-jira-issue
-description: Create a new Jira issue by gathering details from the user, optionally analyzing the codebase for technical context, then calling the Jira API.
+description: Create a new Jira issue by gathering details from the user, analyzing the codebase for technical context, grilling the user to remove ambiguity, then creating a fully self-contained ticket via the Jira API.
 allowed-tools: Read, Glob, Grep, Bash, Agent, AskUserQuestion
 ---
 
+Every issue created by this skill MUST follow the **Standard Ticket Structure** below. The goal is a ticket a junior engineer can pick up and complete with **zero** prior context and **no** follow-up questions. Reference example: ENG-2114.
+
+## Standard Ticket Structure
+
+The description is written in **Jira wiki markup** (the v2 REST API renders wiki markup, NOT Markdown — see "Wiki markup rules" at the bottom). Use these sections, in this order.
+
+**Core sections — ALWAYS required:**
+
+- `h2. In one sentence` — one plain-language sentence stating what this ticket changes.
+- `h2. Background (no prior context needed)` — enough context that a junior with no knowledge of this work can understand it. Explain the "why" and the current state.
+- `h2. Step by step` — numbered, concrete implementation steps (`#` for numbered list).
+- `h2. What NOT to do` — explicit out-of-scope items and traps to avoid (`*` bullets).
+- `h2. Acceptance criteria` — checklist of conditions that must be true for the ticket to be done (`*` bullets). Include test-suite passing where relevant.
+- `h2. How to test` — how to verify the change, automated and manual.
+
+**Optional sections — include ONLY when they add value:**
+
+- `h2. Key terms` — define any domain/codebase jargon used in the ticket (`*` bullets, term in `*bold*`).
+- `h2. Prerequisites (blocked by)` — blocking tickets, or `None`. Include whenever the work depends on or is sequenced after other tickets.
+- `h2. Reference to copy from` — existing files/patterns to model the work on (with paths). Include whenever a clear template exists in the codebase.
+- `h2. If you get stuck` — the single most useful pointer for when the implementer is lost.
+
+Add a closing line linking the parent epic/initiative when one exists (e.g. "This story is part of the GAPI V2 epic (<epic-url>)").
+
+Do not invent sections outside this set. Omit an optional section entirely rather than padding it.
+
 ## Step 1: Gather Issue Details
 
-If the user has already provided details about the issue (e.g. as arguments or in the conversation), use those. Otherwise, prompt the user:
-
-1. Ask: **"What is this issue about? Please describe the feature, bug, or task."**
-2. Wait for the user's response before proceeding.
+If the user already described the issue (as arguments or earlier in the conversation), use that. Otherwise ask: **"What is this issue about? Please describe the feature, bug, or task."** Wait for the response before proceeding.
 
 ## Step 2: Generate or Confirm the Title
 
-- If the user explicitly provided a title/summary, use it as-is.
-- If the user only provided a description, generate a concise one-line summary from their details and present it to the user for confirmation.
+- If the user gave an explicit title/summary, use it as-is.
+- Otherwise generate a concise one-line summary from their details and present it for confirmation.
 
-## Step 3: Offer Codebase Analysis
+## Step 3: Analyze the Codebase (MANDATORY)
 
-Ask the user: **"Would you like me to analyze the current codebase to gather technical details related to this issue?"**
+Codebase analysis is **required** — it is the raw material for the structured sections. Treat the current working directory as the project root.
 
-- **If the user says no**: Skip to Step 4.
-- **If the user says yes**:
-  1. Treat the current working directory as the project root.
-  2. Use `Glob`, `Grep`, `Read`, and `Agent` (with `subagent_type: "Explore"`) as needed to investigate code relevant to the issue.
-  3. Read any relevant documentation files (READMEs, docs/, etc.).
-  4. If anything is unclear or ambiguous, ask the user clarifying questions to ensure accuracy.
-  5. Compile the technical findings into a structured section to append to the issue description. Format it clearly under a heading like **"💻 Technical Notes"** and include:
-     - Relevant files and code paths
-     - Current behavior (for bugs) or related existing functionality (for features)
-     - Any dependencies or architectural considerations
-  6. Present the full assembled description (user's details + technical context) to the user for review before proceeding.
+1. Use `Glob`, `Grep`, `Read`, and `Agent` (with `subagent_type: "Explore"`) to investigate code relevant to the issue.
+2. Read relevant documentation (READMEs, `docs/`, `CLAUDE.md`, styleguides).
+3. Identify, at minimum:
+   - Files/modules/code paths to create or modify (with paths) → feeds **Step by step** and **Reference to copy from**.
+   - Existing patterns and conventions to follow → feeds **Reference to copy from**.
+   - Domain terms a junior wouldn't know → feeds **Key terms**.
+   - Dependencies, blocking work, or architectural considerations → feeds **Prerequisites** and **Background**.
+   - Edge cases and likely traps → feeds **What NOT to do** and **How to test**.
 
-## Step 4: Validate Environment
+## Step 4: Grill the User Until Every Required Section Can Be Filled
 
-Run the following check before calling the script:
+Before assembling anything, review what the issue and the codebase tell you, then **interrogate the gaps**. Using `AskUserQuestion`, ask clarifying questions until you can write each required section with concrete, junior-actionable detail — not placeholders.
+
+Keep asking (follow-ups allowed) until there are no remaining ambiguities in:
+- Scope and explicit non-goals (so **What NOT to do** is real).
+- Acceptance criteria (what "done" means, measurably).
+- Edge cases, error handling, and validation behavior.
+- Which existing pattern to follow when several exist.
+- Any blocking work / prerequisites.
+
+Only stop when you could genuinely hand the ticket to a junior with no follow-up needed. If something is already clear, say so and move on — don't ask for the sake of asking.
+
+## Step 5: Assemble the Description
+
+Compose the full description in **Jira wiki markup** following the Standard Ticket Structure. Fill core sections from the user's details + codebase analysis + clarifications. Include optional sections only where they add value.
+
+## Step 6: Review
+
+Present the full assembled description to the user. Ask if they want changes. Revise until approved.
+
+## Step 7: Validate Environment
 
 ```bash
-for var in JIRA_API_TOKEN JIRA_EMAIL JIRA_BASE_URL JIRA_PROJECT_ID JIRA_BOARD_ID; do
+for var in JIRA_API_TOKEN JIRA_EMAIL JIRA_BASE_URL JIRA_BOARD_ID; do
   if [[ -z "${!var:-}" ]]; then
     echo "MISSING: $var"
   fi
 done
 ```
 
-If any variables are missing, inform the user which ones are unset and stop. Do **not** proceed without all four variables.
+If any are missing, tell the user which are unset and stop.
 
-## Step 5: Create the Issue
-
-Call the bash script, passing the summary and description as arguments:
+## Step 8: Create the Issue
 
 ```bash
 bash /Users/wraith/the_lab/jean-claude/skills/create-jira-issue/create-jira-issue.sh "<summary>" "<description>"
 ```
 
-- The summary is argument 1 (the one-line title).
-- The description is argument 2 (the full issue body).
-- Both arguments must be properly quoted to handle special characters and newlines.
+- Summary is argument 1; description (the full wiki-markup body) is argument 2.
+- Quote both arguments to preserve newlines and special characters.
 
-## Step 6: Sprint Assignment (Optional)
+## Step 9: Sprint Assignment (Optional)
 
-After the issue is created successfully:
+After creation succeeds:
 
-1. Fetch active and future sprints for the board:
+1. Fetch active/future sprints:
    ```bash
    curl -s \
      -H "Authorization: Basic $(printf '%s:%s' "$JIRA_EMAIL" "$JIRA_API_TOKEN" | base64)" \
      -H "Content-Type: application/json" \
      "${JIRA_BASE_URL}/rest/agile/1.0/board/${JIRA_BOARD_ID}/sprint?state=active,future"
    ```
-
-2. Parse the response and present a numbered list of sprints to the user (showing sprint name and state).
-
-3. Ask the user: **"Would you like to add this issue to a sprint?"** and present the list with a "Skip" option.
-
-4. If the user selects a sprint, assign the issue:
+2. Present a numbered list (name + state) with a "Skip" option, and ask: **"Would you like to add this issue to a sprint?"**
+3. If a sprint is chosen:
    ```bash
    curl -s -w "\n%{http_code}" \
      -X POST \
@@ -83,11 +115,19 @@ After the issue is created successfully:
      -d '{"issues":["<ISSUE_KEY>"]}' \
      "${JIRA_BASE_URL}/rest/agile/1.0/sprint/<SPRINT_ID>/issue"
    ```
+4. If skipped, proceed without assignment.
 
-5. If the user skips, proceed without sprint assignment.
-
-## Step 7: Report Result
+## Step 10: Report Result
 
 - Display the issue URL returned by the script.
-- If a sprint was assigned, confirm which sprint.
-- If any step fails, display the error output and suggest the user check their environment variables and Jira permissions.
+- Confirm the sprint if one was assigned.
+- On any failure, show the error output and suggest checking env vars and Jira permissions.
+
+## Wiki markup rules (Jira v2 API — NOT Markdown)
+
+- Headers: `h2.` for sections, `h3.` for sub-sections (NOT `##`).
+- Bullets: `*` (nested: `**`). Numbered lists: `#`.
+- Bold: `*text*`. Inline code: `{{code}}`. Code block: `{code}...{code}`.
+- Horizontal rule: `----`.
+- Links: paste the URL directly, or `[text|url]`.
+- Escape literal braces as `\{` and `\}` so they don't start a macro.

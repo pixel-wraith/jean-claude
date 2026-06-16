@@ -1,12 +1,36 @@
 ---
 name: enrich-jira-issue
-description: Read a Jira issue's requirements, analyze the codebase for technical implementation details, ask clarifying questions, then update the issue with technical notes and testing requirements.
+description: Read a Jira issue's requirements, analyze the codebase for technical implementation details, ask clarifying questions, then rewrite the issue into the Standard Ticket Structure (preserving the original notes).
 allowed-tools: Read, Glob, Grep, Bash, Agent, AskUserQuestion
 ---
 
-## Step 1: Validate Environment
+This skill rewrites an existing issue into the **Standard Ticket Structure** below. The goal is a ticket a junior engineer can pick up and complete with **zero** prior context and **no** follow-up questions. Reference example: ENG-2114.
 
-Run the following check before doing anything else:
+## Standard Ticket Structure
+
+The description is written in **Jira wiki markup** (the v2 REST API renders wiki markup, NOT Markdown — see "Wiki markup rules" at the bottom). Use these sections, in this order.
+
+**Core sections — ALWAYS required:**
+
+- `h2. In one sentence` — one plain-language sentence stating what this ticket changes.
+- `h2. Background (no prior context needed)` — enough context that a junior with no knowledge of this work can understand it. Explain the "why" and the current state.
+- `h2. Step by step` — numbered, concrete implementation steps (`#` for numbered list).
+- `h2. What NOT to do` — explicit out-of-scope items and traps to avoid (`*` bullets).
+- `h2. Acceptance criteria` — checklist of conditions that must be true for the ticket to be done (`*` bullets). Include test-suite passing where relevant.
+- `h2. How to test` — how to verify the change, automated and manual.
+
+**Optional sections — include ONLY when they add value:**
+
+- `h2. Key terms` — define any domain/codebase jargon used in the ticket (`*` bullets, term in `*bold*`).
+- `h2. Prerequisites (blocked by)` — blocking tickets, or `None`. Include whenever the work depends on or is sequenced after other tickets.
+- `h2. Reference to copy from` — existing files/patterns to model the work on (with paths). Include whenever a clear template exists in the codebase.
+- `h2. If you get stuck` — the single most useful pointer for when the implementer is lost.
+
+Add a closing line linking the parent epic/initiative when one exists.
+
+Do not invent sections outside this set. Omit an optional section entirely rather than padding it.
+
+## Step 1: Validate Environment
 
 ```bash
 for var in JIRA_API_TOKEN JIRA_EMAIL JIRA_BASE_URL; do
@@ -20,11 +44,9 @@ If any variables are missing, inform the user which ones are unset and stop.
 
 ## Step 2: Get the Jira Issue
 
-If no Jira issue key or URL was provided, prompt the user to provide one.
+If no Jira issue key or URL was provided, prompt the user. Extract the key from the URL or use it directly (e.g. `ENG-1234`).
 
-Extract the issue key from the URL or use the key directly (e.g. `ENG-1234`).
-
-Fetch the issue details:
+Fetch the issue (request wiki markup, not rendered HTML):
 
 ```bash
 curl -s \
@@ -33,97 +55,57 @@ curl -s \
   "${JIRA_BASE_URL}/rest/api/2/issue/<ISSUE_KEY>?fields=summary,description"
 ```
 
-Parse the response and extract:
-- The issue **summary** (title)
-- The issue **description** (full body)
+Extract the **summary** (title) and **description** (full body). Display both so the user can confirm it's the right issue.
 
-Display the issue summary and description to the user so they can confirm this is the correct issue.
-
-Store the original description exactly as-is — it will be preserved later.
+**Store the original description exactly as-is** — it will be preserved verbatim at the bottom of the rewritten ticket.
 
 ## Step 3: Analyze the Codebase
 
-Treat the current working directory as the project root.
+Treat the current working directory as the project root. Using the issue's requirements as context, investigate how the work should be implemented:
 
-Using the issue's requirements as context, investigate the codebase to understand how the work should be implemented:
+1. Use `Glob`, `Grep`, `Read`, and `Agent` (with `subagent_type: "Explore"`) to find relevant code.
+2. Read relevant documentation (READMEs, `docs/`, `CLAUDE.md`, styleguides).
+3. Identify, mapping findings to the structure's sections:
+   - Files/modules/code paths to create or modify (with paths) → **Step by step**, **Reference to copy from**.
+   - Existing patterns and conventions to follow → **Reference to copy from**.
+   - Domain terms a junior wouldn't know → **Key terms**.
+   - Dependencies, blocking work, architectural considerations → **Prerequisites**, **Background**.
+   - Edge cases and likely traps → **What NOT to do**, **How to test**.
 
-1. Use `Glob`, `Grep`, `Read`, and `Agent` (with `subagent_type: "Explore"`) as needed to find code relevant to the issue's requirements.
-2. Read any relevant documentation files (READMEs, docs/, etc.).
-3. Identify:
-   - Relevant files, modules, and code paths that will need to be created or modified
-   - Existing patterns and conventions that should be followed
-   - Dependencies or architectural considerations
-   - Database models, API routes, services, or other layers involved
-   - Edge cases or potential pitfalls
+## Step 4: Grill the User Until Every Required Section Can Be Filled
 
-## Step 4: Ask Clarifying Questions
+Review what the issue and codebase tell you, then interrogate the gaps with `AskUserQuestion`. Keep asking (follow-ups allowed) until you can write each required section with concrete, junior-actionable detail — no placeholders. Resolve ambiguity in:
+- Scope and explicit non-goals (so **What NOT to do** is real).
+- Acceptance criteria (what "done" means, measurably).
+- Edge cases, error handling, validation behavior.
+- Which existing pattern to follow when several exist.
+- Any blocking work / prerequisites.
 
-Before compiling results, review what you've learned from both the issue requirements and the codebase analysis.
+Stop only when you could hand the ticket to a junior with no follow-up needed. If everything is already clear, say so and proceed.
 
-If there are any ambiguities, gaps, or areas where the requirements are unclear, ask the user clarifying questions using `AskUserQuestion`. Examples of things to clarify:
-- Unclear acceptance criteria
-- Ambiguous behavior for edge cases
-- Missing details about error handling or validation
-- Questions about which existing patterns to follow when multiple options exist
+## Step 5: Assemble the New Description
 
-Wait for the user to respond before proceeding. You may ask follow-up questions if needed.
-
-If everything is clear, tell the user you have no clarifying questions and proceed.
-
-## Step 5: Compile Technical Implementation Details
-
-Based on your analysis and any clarifications received, compile:
-
-### Technical Notes
-A list of specific, actionable technical implementation details. Each item should be concrete enough for a developer to act on. Include:
-- Files to create or modify (with paths)
-- Patterns to follow (reference existing code)
-- Database changes needed
-- API contract details
-- Service layer changes
-- Dependencies or imports required
-- Any architectural decisions or trade-offs
-
-### Testing Requirements
-A list of use cases that tests must cover. These should be specific test scenarios, not vague categories. Include:
-- Happy path scenarios
-- Error/failure scenarios
-- Edge cases
-- Auth/permission scenarios (if applicable)
-- Validation scenarios (if applicable)
-
-Present the compiled details to the user for review before updating the issue. Ask if they want to make any changes.
-
-## Step 6: Update the Jira Issue
-
-Construct the new description using this exact structure:
+Compose the full body in **Jira wiki markup** following the Standard Ticket Structure, then append the preserved original at the bottom:
 
 ```
-{{SUMMARY}}
+{{CORE + OPTIONAL SECTIONS, in the order defined above}}
 
-## 💻 Technical Notes
-- {{LIST OF TECHNICAL IMPLEMENTATION DETAILS}}
+{{closing epic/initiative link, if any}}
 
-### Acceptance Criteria
+----
 
-- {{LIST OF CRITERIA THAT MUST BE MET TO MEET THE LISTED REQUIREMENTS}}
+h2. Original Notes
 
-## 🧪 Testing Requirements
-*At minimum, the following use cases should be covered by tests:*
-- {{LIST OF USE CASES THAT TESTS MUST COVER}}
----
-
-## Original Notes
-{{THE ORIGINAL DESCRIPTION STORED IN STEP 2}}
+{{THE ORIGINAL DESCRIPTION STORED VERBATIM IN STEP 2}}
 ```
 
-Where:
-- `{{SUMMARY}}` is a brief summary of the issue's purpose (1-2 sentences derived from the issue title and description)
-- `{{LIST OF TECHNICAL IMPLEMENTATION DETAILS}}` is the bulleted list from Step 5
-- `{{LIST OF USE CASES THAT TESTS MUST COVER}}` is the bulleted list from Step 5
-- `{{THE ORIGINAL DESCRIPTION STORED IN STEP 2}}` is the exact original description captured in Step 2
+The original notes block is preserved exactly — do not edit, summarize, or reformat it.
 
-Update the issue description via the Jira API:
+## Step 6: Review
+
+Present the full assembled description to the user. Ask if they want changes. Revise until approved.
+
+## Step 7: Update the Jira Issue
 
 ```bash
 curl -s -w "\n%{http_code}" \
@@ -134,10 +116,19 @@ curl -s -w "\n%{http_code}" \
   "${JIRA_BASE_URL}/rest/api/2/issue/<ISSUE_KEY>"
 ```
 
-Verify the response returns a successful HTTP status code (2xx).
+Verify the response is a 2xx status code.
 
-## Step 7: Report Result
+## Step 8: Report Result
 
-- Confirm the issue was updated successfully.
-- Display the issue URL: `${JIRA_BASE_URL}/browse/<ISSUE_KEY>`
-- If any step fails, display the error output and suggest the user check their environment variables and Jira permissions.
+- Confirm the issue was updated.
+- Display the issue URL: `${JIRA_BASE_URL}/browse/<ISSUE_KEY>`.
+- On any failure, show the error output and suggest checking env vars and Jira permissions.
+
+## Wiki markup rules (Jira v2 API — NOT Markdown)
+
+- Headers: `h2.` for sections, `h3.` for sub-sections (NOT `##`).
+- Bullets: `*` (nested: `**`). Numbered lists: `#`.
+- Bold: `*text*`. Inline code: `{{code}}`. Code block: `{code}...{code}`.
+- Horizontal rule: `----`.
+- Links: paste the URL directly, or `[text|url]`.
+- Escape literal braces as `\{` and `\}` so they don't start a macro.
