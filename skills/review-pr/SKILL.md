@@ -141,33 +141,75 @@ Severity scale for the title:
 - **Medium** — should fix soon
 - **Low/Nit** — optional/style
 
-### How to Submit
+### Step 1: Fetch the Diff and Build a Map of Valid Comment Lines
+
+Before constructing any comments, you MUST fetch the PR diff to determine which file/line combinations are valid targets for inline comments. The GitHub API will reject comments on lines that don't appear in the diff.
+
+```bash
+gh api repos/{owner}/{repo}/pulls/{pr_number}/files --paginate > /tmp/pr-files.json
+```
+
+This returns JSON with each file's `filename` and `patch` fields. Parse each file's `patch` to identify which line numbers are valid comment targets:
+
+- The `patch` field contains unified diff format. Each hunk starts with a `@@` header like `@@ -10,4 +12,6 @@`.
+- The `+12,6` part means the RIGHT side (new file) starts at line 12 for this hunk.
+- Walk through the hunk lines after the `@@` header:
+  - Lines starting with `+` or ` ` (space/context) exist on the RIGHT side — increment the RIGHT line counter.
+  - Lines starting with `-` or ` ` (space/context) exist on the LEFT side — increment the LEFT line counter.
+- Only lines that appear in the diff hunks are valid targets for inline comments.
+
+**Rule:** Every comment you create MUST have its `line` verified against the diff. If the exact line you want to comment on is not in the diff, use the nearest line within the same diff hunk that provides sufficient context.
+
+### Step 2: Build the Review Payload
 
 Submit all comments as a single review with event `REQUEST_CHANGES`. Each finding is an entry in the `comments` array. The review `body` should be a single short sentence summarizing the review (e.g., "Found 3 issues that should be addressed before merging."). Do NOT put detailed findings, status reports, or section headers in the review body.
 
-Build a JSON file with all comments, then submit:
+Use `jq` to construct the JSON payload — this ensures proper escaping of special characters in comment bodies. Do NOT use heredoc-based JSON construction.
+
+Every comment in the `comments` array MUST include these fields:
+- `path` — file path relative to repo root (must match a `filename` from the PR files API response)
+- `line` — line number that exists within a diff hunk for this file (verified in Step 1)
+- `side` — `"RIGHT"` for added or context lines (this is the default for most review comments), `"LEFT"` for deleted lines
+- `body` — the formatted comment text
+
+Example payload construction:
 
 ```bash
-# Write the review payload to a temp file
-cat > /tmp/review-payload.json << 'REVIEW_EOF'
-{
-  "event": "REQUEST_CHANGES",
-  "body": "<one-sentence summary, e.g. 'Found N issues to address before merging.'>",
-  "comments": [
+jq -n \
+  --arg event "REQUEST_CHANGES" \
+  --arg body "Found N issues to address before merging." \
+  --argjson comments '[
     {
-      "path": "<file path relative to repo root>",
-      "line": <line number in the diff>,
-      "body": "**<Title>** (<Severity>)\n\n<Description of the issue>\n\n**Recommendation:** <actionable fix>"
+      "path": "src/example.ts",
+      "line": 42,
+      "side": "RIGHT",
+      "body": "**Title** (Severity)\n\nDescription of the issue.\n\n**Recommendation:** Actionable fix."
     }
-  ]
-}
-REVIEW_EOF
+  ]' \
+  '{event: $event, body: $body, comments: $comments}' > /tmp/review-payload.json
+```
 
-# Submit the review
+### Step 3: Validate Before Submitting
+
+Before submitting the review, verify:
+- Every comment's `path` matches a `filename` from the PR files list
+- Every comment's `line` exists within a diff hunk for that file (confirmed in Step 1)
+- Every comment has `side` set (`"RIGHT"` for new/changed lines, `"LEFT"` for deleted lines)
+- The JSON is valid: `jq . /tmp/review-payload.json`
+
+### Step 4: Submit the Review
+
+```bash
 gh api repos/{owner}/{repo}/pulls/{pr_number}/reviews \
   --method POST \
   --input /tmp/review-payload.json
 ```
+
+**Error handling:** If the API returns a 422 error:
+1. Read the error message — it usually identifies which comment has an invalid `path` or `line`.
+2. Re-examine the diff for that file to find the correct line number.
+3. Fix the payload and resubmit.
+4. Do NOT fall back to `gh pr comment`. Fix the inline comment and retry.
 
 ### When There Are No Issues
 
@@ -182,9 +224,10 @@ gh api repos/{owner}/{repo}/pulls/{pr_number}/reviews \
 
 ### Rules
 
-- Every finding = its own inline comment. Never combine multiple findings into one comment.
+- Every finding = its own inline comment in the `comments` array. Never combine multiple findings into one comment.
 - Always submit as `REQUEST_CHANGES` when there are findings, regardless of severity.
-- If a finding cannot be tied to a specific file/line (e.g., missing test file, general architectural concern), post it as a standalone PR comment using `gh pr comment` instead — still one comment per finding.
+- NEVER use `gh pr comment` because an inline comment API call failed. Always fix the line number and retry the review API instead.
+- The ONLY acceptable use of `gh pr comment` is for findings that are genuinely not tied to any file at all (e.g., "this PR is missing a database migration entirely"). This should be extremely rare.
 - Do NOT include build/lint/test status, CI check summaries, preparation notes, or risk assessments in the review. Only submit actionable feedback on the code.
 - Do NOT pause and wait for approval before submitting — post the review immediately after completing the analysis.
 
