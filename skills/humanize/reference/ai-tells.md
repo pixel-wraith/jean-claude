@@ -38,27 +38,37 @@ entries to fit their house style — edit the `ai-vocabulary` rule in
 
 ---
 
-## Layer 2 — Clarity nudge (soft — suggest, don't force)
+## Layer 2 — Plain-language rewrite (required)
 
-AI prose is often tell-free but still cryptic: dense, passive, abstract, hard to
-follow. This layer is a **light push toward plain speech**. Every item is a
-suggestion the author can take or leave, never a required change. The linter
-tags these `CLARITY`. Apply them gently; do not flatten a passage that already
-reads clearly, and never rewrite so hard that you lose the author's meaning or
-insert reasoning to fill a gap.
+AI prose is often tell-free but still hard to read: dense, passive, abstract,
+jammed with nouns, written in corporate register. Text like that fails the job
+even with zero em-dashes. This layer is **required, not a suggestion**. The test
+for every sentence: *would a junior on the team understand it on the first read?*
+If not, rewrite it into plain, direct language. The linter tags these `CLARITY`,
+but the tag name is historical — treat them as rewrites you owe the reader, the
+same as Layer 1.
 
-| Nudge | Why | Suggestion |
+The one limit: do not lose the author's meaning, drop a technical fact, or
+invent reasoning to fill a gap. Keep the real endpoint/field/file names and the
+edge cases; make the *sentences around them* plain. And genuinely-plain prose is
+left alone — but stiff, nominalized, or corporate phrasing does not count as
+plain, so "it already reads fine" is never a reason to skip a rewrite here.
+
+| Problem | Why it's hard to read | Rewrite |
 |---|---|---|
-| Long sentences (over ~30 words) | Reader loses the thread | Split into two, or cut qualifiers |
-| Passive voice ("was handled by", "is processed") | Hides who does what | Name the actor, use an active verb — where it reads clearer |
-| Nominalizations ("make a decision", "perform an analysis") | Buries the verb in a noun | Use the plain verb: "decide", "analyze" |
-| Wordy phrases ("utilize", "in order to", "due to the fact that", "a number of") | Long way to say a short thing | Plain swap: "use", "to", "because", "several" |
+| Long sentences (over ~30 words) | Reader loses the thread | Split into two or three. One idea per sentence. |
+| Passive voice ("was handled by", "is processed") | Hides who does what | Name the actor, active verb: "the worker handles it" |
+| Nominalizations / buried verbs ("make a decision", "perform an analysis") | The action is trapped in a noun | Free the verb: "decide", "analyze" |
+| Stiff noun-stacks ("current confirmed need", "per-job download-URL regeneration") | Reads like a spec label, not a sentence | Say it as an action: "what we actually need now", "regenerating the download URL for each job" |
+| Corporate register ("leverage", "facilitate", "utilize", "sufficient") | Nobody talks like this | Plain word: "use", "help", "use", "enough" |
+| Wordy phrases ("in order to", "due to the fact that", "a number of") | Long way to say a short thing | "to", "because", "several" |
 
 Thresholds and the wordy-phrase list are **defaults** in
 `scripts/humanize-lint.mjs` (`LONG_SENTENCE_WORDS`, the `SWAPS` map). A team or
-person who wants a harder push can lower the threshold and extend the list;
-someone who wants a lighter touch can raise it. That's the "push it further if
-needed" dial.
+person who wants a harder push can lower the threshold and extend the list. That
+dial changes how much the linter flags; it does not change that plain language
+is required — the linter is a helper, and you are still the judge of every
+sentence.
 
 ---
 
