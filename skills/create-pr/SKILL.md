@@ -24,5 +24,6 @@ Before creating the PR:
 2. Create the PR against the `staging` branch using `gh pr create`.
 3. In the PR summary, provide a concise summary of the changes made in this branch.
 4. Include clear, step-by-step instructions for other developers to manually test the changes.
-5. If I specify reviewers, labels, or assignees, include them via the appropriate `gh pr create` flags.
-6. If I request a draft PR, use the `--draft` flag.
+5. Always assign the PR to me by passing `--assignee @me` to `gh pr create`.
+6. If I specify reviewers, labels, or additional assignees, include them via the appropriate `gh pr create` flags (keep `@me` in the assignee list).
+7. If I request a draft PR, use the `--draft` flag.
