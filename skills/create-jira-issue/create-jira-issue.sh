@@ -9,7 +9,7 @@ fi
 SUMMARY="$1"
 DESCRIPTION="$2"
 
-for var in JIRA_API_TOKEN JIRA_EMAIL JIRA_BASE_URL JIRA_BOARD_ID; do
+for var in JIRA_API_TOKEN JIRA_EMAIL JIRA_BASE_URL JIRA_PROJECT_ID; do
   if [[ -z "${!var:-}" ]]; then
     echo "Error: $var is not set." >&2
     exit 1
@@ -19,18 +19,18 @@ done
 STORY_ID=$(curl -s \
   -H "Authorization: Basic $(printf '%s:%s' "$JIRA_EMAIL" "$JIRA_API_TOKEN" | base64)" \
   -H "Content-Type: application/json" \
-  "${JIRA_BASE_URL}/rest/api/2/project/${JIRA_BOARD_ID}" \
+  "${JIRA_BASE_URL}/rest/api/2/project/${JIRA_PROJECT_ID}" \
   | jq -r '.issueTypes[] | select(.name == "Story") | .id')
 
 if [[ -z "$STORY_ID" ]]; then
-  echo "Error: Could not find 'Story' issue type for project $JIRA_BOARD_ID." >&2
+  echo "Error: Could not find 'Story' issue type for project $JIRA_PROJECT_ID." >&2
   exit 1
 fi
 
 PAYLOAD=$(jq -n \
   --arg summary "$SUMMARY" \
   --arg description "$DESCRIPTION" \
-  --arg project "$JIRA_BOARD_ID" \
+  --arg project "$JIRA_PROJECT_ID" \
   --arg issuetype_id "$STORY_ID" \
   '{
     fields: {

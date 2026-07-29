@@ -1,6 +1,10 @@
 #!/usr/bin/env node
-// humanize-lint — deterministic scan for AI tells and clarity problems.
-// Detects the fixable/rewritable tells and soft clarity nudges only.
+// humanize-lint — deterministic scan for AI tells and plain-language problems.
+// Detects the fixable/rewritable tells and the common plain-language problems
+// (long sentences, passive voice, buried verbs, wordy/corporate phrases). Those
+// plain-language findings are REQUIRED rewrites, not optional polish — the tag
+// name CLARITY is historical. The model is still the judge of every sentence;
+// the linter just catches the usual suspects.
 // Truth-guardrail checks (fabricated numbers, invented reasoning) are NOT
 // deterministic and are handled by the model during the humanize pass, not here.
 //
@@ -18,13 +22,16 @@ const args = process.argv.slice(2);
 const json = args.includes("--json");
 const file = args.find((a) => !a.startsWith("--"));
 
-const LONG_SENTENCE_WORDS = 30; // soft threshold; tune to taste
+const LONG_SENTENCE_WORDS = 30; // flag sentences longer than this; tune to taste
 
 // MECHANICAL = one correct fix, safe to apply automatically.
 // REWRITE    = needs a contextual rewrite; the humanize pass rewrites it,
 //              it is never blindly find/replaced.
-// CLARITY    = soft plain-speech nudge; a suggestion, not a required change.
-//              Higher false-positive rate by design — flag, don't force.
+// CLARITY    = a plain-language problem (dense/passive/buried-verb/wordy). These
+//              are REQUIRED rewrites where the sentence fails the first-read
+//              test, not optional. Higher false-positive rate by design, so the
+//              model judges each hit rather than rewriting blindly — but "it
+//              reads fine to me" is not a pass for stiff or corporate phrasing.
 // Each rule: { id, kind, re, why, fix }. `re` must be global.
 const RULES = [
   // ---- MECHANICAL ---------------------------------------------------------
@@ -221,14 +228,14 @@ if (json) {
 }
 
 if (findings.length === 0) {
-  process.stdout.write("clean — no AI tells or clarity problems found.\n");
+  process.stdout.write("clean — no AI tells or plain-language problems found.\n");
   process.exit(0);
 }
 
 const groups = [
   ["MECHANICAL", "safe to auto-apply"],
   ["REWRITE", "needs a contextual rewrite"],
-  ["CLARITY", "soft plain-speech nudge — suggestion, not required"],
+  ["CLARITY", "plain-language rewrite — required where the sentence fails the first-read test"],
 ];
 const loc = (f) => `${String(f.line).padStart(4)}:${String(f.col).padStart(3)}`;
 
