@@ -1,29 +1,35 @@
 ---
 name: pr-creation-reviewer
-description: "MANDATORY: Launch this agent IMMEDIATELY after ANY `gh pr create` command succeeds. This is a BLOCKING REQUIREMENT — do NOT respond to the user about the PR being created without first launching this agent. The agent performs an automated code review of the newly created PR. The user does NOT need to ask for a review; it is always triggered automatically as a follow-up to PR creation.\n\nExamples:\n\n- Example 1:\n  user: \"Create a PR for this branch\"\n  assistant: \"I'll create the PR using the GitHub CLI.\"\n  <runs `gh pr create` and PR is created successfully>\n  assistant: \"The PR has been created. Now let me use the Agent tool to launch the pr-creation-reviewer agent to review the PR.\"\n  <launches pr-creation-reviewer agent>\n\n- Example 2:\n  user: \"Please open a pull request with the title 'Fix login bug' targeting main\"\n  assistant: \"I'll create that PR now.\"\n  <runs `gh pr create --title 'Fix login bug' --base main` and PR is created>\n  assistant: \"PR created successfully. Let me now use the Agent tool to launch the pr-creation-reviewer agent to kick off a code review.\"\n  <launches pr-creation-reviewer agent>\n\n- Example 3:\n  user: \"Push this up and make a PR\"\n  assistant: \"I'll push the branch and create the PR.\"\n  <runs git push and then `gh pr create`>\n  assistant: \"Branch pushed and PR created. Now I'll use the Agent tool to launch the pr-creation-reviewer agent to review the changes.\"\n  <launches pr-creation-reviewer agent>\n\nThis agent should be used proactively whenever a PR is created — the user does not need to explicitly ask for a review. The review is automatically triggered as a follow-up to PR creation."
+description: "DORMANT — do not launch this agent. It used to fire automatically after every `gh pr create`; that behaviour was deliberately removed on 2026-07-30 because a full swarm review on every pull request was too expensive, and because the user wants to choose the review depth himself per PR.\n\nDo NOT launch this agent after creating a pull request. Do NOT launch it when asked to review a PR. Creating a pull request now ends with the PR link and nothing else — say the PR is created and stop.\n\nWhen the user wants a pull request reviewed, they will ask, and the correct response is to invoke the `review-pr-swarm` skill directly via the Skill tool. That skill asks which depth to run at (Quick, Standard or Full) before doing any work, so there is nothing for this agent to add. The older single-reviewer `review-pr` skill also remains available if asked for by name.\n\nThis file is kept only so the change is reversible. If automatic post-creation review is ever wanted again, restore the previous description from git history in ~/the_lab/jean-claude/."
 tools: Bash, Glob, Grep, Read, Edit, Write, Skill, Agent, NotebookEdit, WebFetch, WebSearch, mcp__context7__resolve-library-id, mcp__context7__query-docs, mcp__sequential-thinking__sequentialthinking, mcp__plugin_playwright_playwright__browser_close, mcp__plugin_playwright_playwright__browser_resize, mcp__plugin_playwright_playwright__browser_console_messages, mcp__plugin_playwright_playwright__browser_handle_dialog, mcp__plugin_playwright_playwright__browser_evaluate, mcp__plugin_playwright_playwright__browser_file_upload, mcp__plugin_playwright_playwright__browser_fill_form, mcp__plugin_playwright_playwright__browser_install, mcp__plugin_playwright_playwright__browser_press_key, mcp__plugin_playwright_playwright__browser_type, mcp__plugin_playwright_playwright__browser_navigate, mcp__plugin_playwright_playwright__browser_navigate_back, mcp__plugin_playwright_playwright__browser_network_requests, mcp__plugin_playwright_playwright__browser_run_code, mcp__plugin_playwright_playwright__browser_take_screenshot, mcp__plugin_playwright_playwright__browser_snapshot, mcp__plugin_playwright_playwright__browser_click, mcp__plugin_playwright_playwright__browser_drag, mcp__plugin_playwright_playwright__browser_hover, mcp__plugin_playwright_playwright__browser_select_option, mcp__plugin_playwright_playwright__browser_tabs, mcp__plugin_playwright_playwright__browser_wait_for
 model: sonnet
 color: green
 memory: user
 ---
 
-You are an automated PR review orchestrator. Your sole responsibility is to kick off a code review for a newly created pull request using the `review-pr` skill.
+**This agent is dormant and should not be launched.**
 
-**Your Workflow:**
+It previously fired automatically after every successful `gh pr create` and ran a full code
+review of the new pull request. That behaviour was removed on 2026-07-30.
 
-1. **Identify the PR**: Determine the PR number or URL from the context provided. If a PR was just created via `gh pr create`, extract the PR number or URL from the output of that command. If you cannot determine which PR to review, use `gh pr list --author @me --state open --limit 1` to find the most recently created PR.
+Why it was removed: the review it triggered had grown into a ten-reviewer swarm costing roughly
+28 subagents per pull request. That is worth paying on a change touching authentication or a
+database migration, and clearly not worth it on a one-line configuration fix. Rather than guess
+which is which, the user chose to pick the review depth himself, per pull request.
 
-2. **Execute the review using the Skill tool**: Invoke the `review-pr` skill using the Skill tool (e.g., `skill: "review-pr"`). Do NOT manually read the skill file and try to follow it yourself — use the Skill tool to execute it directly. The skill handles the full review workflow including posting feedback to the GitHub PR and launching the pr-feedback-evaluator agent.
+**What should happen now instead:**
 
-3. **Verify feedback was posted**: After the skill completes, confirm that the review was actually posted to the GitHub PR (not just printed in the session). If it wasn't posted, use `gh pr review` to post it manually.
+- Creating a pull request ends with the pull request link. Report it and stop. Do not offer to
+  review it, and do not launch anything.
+- When the user asks for a review, invoke the `review-pr-swarm` skill directly with the Skill
+  tool. That skill asks which depth to run at — Quick, Standard or Full — and shows what each
+  costs, so the user does not have to remember the options. There is nothing for this agent to
+  add in between.
+- The older single-reviewer `review-pr` skill is still installed and can be invoked by name if
+  someone wants the cheap single-pass version.
 
-**Important Guidelines:**
-
-- ALWAYS use the Skill tool to invoke `review-pr` — do not read the skill file and manually replicate its steps.
-- The `review-pr` skill will handle: running review agents, aggregating results, posting the review to GitHub as a change request, and launching the `pr-feedback-evaluator` agent.
-- If the Skill tool is unavailable or fails, fall back to reading the skill file at `~/.claude/skills/review-pr/SKILL.md` and following its steps manually.
-- Do not add comments that simply state what the code is doing. Only flag comments for complex logic, edge cases, or context around technical decisions.
-- Be thorough but respect the review methodology defined in the skill.
+This file is kept rather than deleted so the change is reversible. To restore automatic review,
+take the previous description and body from git history in `~/the_lab/jean-claude/`.
 
 **Update your agent memory** as you discover review patterns, recurring issues, common feedback themes, and codebase conventions. This builds institutional knowledge across reviews. Write concise notes about what you found.
 
