@@ -8,29 +8,41 @@ Add new entries at the top. Include the date, a version, and a **Why** that name
 
 ---
 
-## 2026-07-31 — v0.7 — praise dropped from the vocabulary
+## 2026-07-31 — v0.7 — every comment must ask for something: praise, thought and note removed
 
 **Why.** The severity-to-decoration table applied a decoration to every finding, which produced
-`praise (if-minor)` on the #229 run — a compliment marked "take it or leave it". Decorations
-describe what the author must *do* about a comment, and praise asks for nothing, so none of the
-three applies.
+`praise (if-minor)` on the #229 run — a compliment marked "take it or leave it".
 
-The narrow fix was a decoration exception. Jake went further and removed the label: every comment
-this panel posts should ask the author for something. A review that also hands out compliments
-makes the reader sort the actionable from the decorative, which is work the review should be
-doing for them.
+The narrow fix was a decoration exception for praise. Following the reasoning out instead: the
+problem is not the decoration, it is that three of the nine labels ask the author for nothing.
+`praise`, `thought` and `note` are all "here is something interesting" comments, and they break
+the review twice over.
 
-**What changed.** `praise` is gone from the label vocabulary, from the depth table, and from the
-reporting filter — Full no longer has a "cap praise at 3" rule and Standard no longer has to
-discard it. Reviewers are told explicitly there is no such label, so one does not invent it.
+They make the reader do sorting the review should have done. Every other comment carries an
+implicit "and therefore do this"; one that does not forces the author to read it through before
+discovering nothing was asked.
 
-If a reviewer wants to record that something was done well and should not be refactored away,
-that is a `note`: it carries information the author needs, and it takes a decoration honestly.
+And they cannot take a decoration honestly, because a decoration says what the author must *do*.
+`praise (if-minor)` is a compliment you may ignore. `thought (blocking)` is a non-actionable
+observation you must resolve before merge.
 
-**What this does not fix.** The same contradiction still exists for `thought` and `note`, the
-other two labels that ask nothing of the author — `thought (blocking)` means "non-actionable
-observation you must resolve before merge". No reviewer has produced either label across three
-runs, so it is latent rather than live, but the decoration table will apply one if they do.
+**What changed.** The vocabulary is six labels, not nine: `issue`, `suggestion`, `nitpick`,
+`question`, `todo`, `chore`. All six ask for something, so the decoration table now applies
+cleanly to every one with no exceptions — removing the labels deleted the bug rather than
+special-casing it.
+
+Also gone: Full's "cap praise at 3" rule and Standard's "discard all praise" clause. Two special
+cases removed from the reporting filter.
+
+Reviewers are told explicitly that the three labels do not exist, so one does not get invented,
+and are told what to do instead — an observation worth the author's attention is worth saying
+what to do about it, either as a fact inside the discussion of a real finding, or as a `question`
+if an answer is actually wanted. If neither fits, it does not belong on the pull request.
+
+**Consequence worth watching.** A run can now legitimately post nothing at all. Under the old
+vocabulary a reviewer with nothing to report could still emit praise or a thought and look
+productive. That option is gone, which is the intent — but it means an empty review is now the
+expected result on a clean PR rather than a sign something went wrong.
 
 ---
 

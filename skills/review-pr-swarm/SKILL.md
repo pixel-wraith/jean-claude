@@ -288,8 +288,9 @@ Field rules:
 - `domain` — your reviewer name, always.
 - `file` / `line` / `side` — omit and set `anchored: no` when the finding is not tied to a
   line in this diff. Otherwise `line` MUST be one of the valid comment lines given above.
-- `label` — one of: issue, suggestion, nitpick, question, todo, chore, note, thought. There is
-  no `praise` label; this panel reports only things that need doing.
+- `label` — one of: issue, suggestion, nitpick, question, todo, chore. There is no `praise`,
+  `thought` or `note` label; every comment this panel posts asks the author for something, so a
+  finding that asks for nothing is not a finding. Do not invent a label outside this list.
 - `severity` — one of: critical, high, medium, low, nit.
 - `evidence` — a real file:line reference and a quoted fragment. A finding with no evidence
   will be discarded, so do not submit one.
@@ -414,15 +415,27 @@ Severity maps to decoration:
 | medium | `(non-blocking)` | Should be addressed, does not gate the merge |
 | low, nit | `(if-minor)` | Take it or leave it |
 
-Labels follow the Conventional Comments vocabulary — `issue` for a defect, `suggestion` for a
-concrete alternative, `nitpick` for a trivial preference, `question` where the reviewer needs
-information, `todo` for a small required change, `chore` for process work, `thought` for a
-non-actionable observation, `note` for information the author should have.
+Labels come from the Conventional Comments vocabulary, but this panel uses six of them, not
+nine — `issue` for a defect, `suggestion` for a concrete alternative, `nitpick` for a trivial
+preference, `question` where the reviewer needs information, `todo` for a small required change,
+`chore` for process work.
 
-There is deliberately no `praise` label. Every comment this panel posts asks the author for
-something; a review that also hands out compliments makes the reader work out which comments
-need action and which do not. If a reviewer wants to flag that something was done well and
-should not be refactored away, that is a `note` — it carries information the author needs.
+**`praise`, `thought` and `note` are deliberately excluded.** They are the three labels that ask
+the author for nothing, and they break the review in two ways.
+
+They make the reader do sorting the review should have done for them. Every other comment
+carries an implicit "and therefore do this"; a comment that does not forces the author to read it
+through before discovering nothing was being asked.
+
+They also cannot take a decoration honestly. The decoration says what the author must *do* —
+`(blocking)` fix before merge, `(non-blocking)` fix soon, `(if-minor)` your call. Applied to a
+label that asks for nothing they produce nonsense: `praise (if-minor)` is a compliment you may
+ignore, and `thought (blocking)` is a non-actionable observation you must resolve before merge.
+
+So there is no "here is something interesting" comment. If an observation is worth the author's
+attention, it is worth saying what to do about it — as a `note`-shaped fact inside the discussion
+of a real finding, or as a `question` if you actually want an answer. If neither fits, it does
+not belong on the pull request.
 
 The subject line is one sentence, no trailing period, written in plain English. The discussion
 explains why it matters — not just what the rule is.
