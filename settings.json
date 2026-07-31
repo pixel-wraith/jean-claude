@@ -4,7 +4,8 @@
       "Bash(**/.env)",
       "Read(**/.env)",
       "Write(**/.env)"
-    ]
+    ],
+    "defaultMode": "auto"
   },
   "hooks": {
     "Notification": [
@@ -17,10 +18,24 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/issue-first-check.sh",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   },
   "skipDangerousModePermissionPrompt": true,
   "enabledPlugins": {
     "playwright@claude-plugins-official": true
-  }
+  },
+  "agentPushNotifEnabled": true,
+  "skipAutoPermissionPrompt": true,
+  "tui": "fullscreen"
 }

@@ -27,6 +27,12 @@ Report: identical / drift (with file names) / one-sided (present in only one loc
 
 Same reporting shape as step 1.
 
+### 2b. Compare hooks scripts
+
+`diff -rq ~/.claude/hooks ~/the_lab/jean-claude/hooks 2>/dev/null || echo "one of the hooks dirs may not exist yet"`
+
+Same reporting shape as steps 1 and 2. Hook script drift is high-priority — a script that lives in `~/.claude/hooks/` but not jean-claude won't survive a new-machine setup, and the hook's `settings.json` entry references a path that won't exist on the new machine (silent failure).
+
 ### 3. Compare settings.json
 
 `diff ~/.claude/settings.json ~/the_lab/jean-claude/settings.json`
@@ -59,6 +65,7 @@ If working tree has changes, remind Jake to commit + push. Do NOT auto-commit �
 sync-tooling check
   skills:      <in sync | drift: <list>>
   agents:      <in sync | drift: <list>>
+  hooks:       <in sync | drift: <list>>
   settings:    <in sync | drift: <line count>>
   action:      <no changes needed | copied <list> <src>→<target> | awaiting Jake approval on <list>>
   jean-claude git status: <clean | uncommitted changes (Jake should commit)>
