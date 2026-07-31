@@ -8,6 +8,40 @@ Add new entries at the top. Include the date, a version, and a **Why** that name
 
 ---
 
+## 2026-07-31 — v0.5 — knows it cannot request changes on your own pull request
+
+**Why.** The first real run (merge-lantern#244, logged in `RUNS.md`) submitted `REQUEST_CHANGES`
+and GitHub rejected it with a 422: `Can not request changes on your own pull request`. The run
+recovered by resending as `COMMENT`, but it should never have made the failing call — in a
+one-person repository the reviewer is always the author, so this happens on every single review.
+
+**What changed.**
+
+- **The author is checked before the review is submitted.** Step 9 now compares the PR author
+  against the authenticated `gh` account. When they match, a verdict of `REQUEST_CHANGES` is sent
+  as `COMMENT` instead, with no failed request in between.
+
+- **The downgrade is stated in the review body and in the terminal report.** This is the part
+  that actually matters. A review carrying two blocking findings that arrives as a plain
+  `COMMENT` reads as though nothing serious was found. The body now opens with a note saying the
+  review would have requested changes and that the blocking findings still need resolving, and
+  step 10 prints the same thing so the verdict is never silently softened.
+
+- **The 422 handler distinguishes two causes.** It previously assumed every 422 meant a bad
+  inline comment line and told you to re-derive line numbers — useless advice for a self-review
+  rejection. It now reads the message: a self-review error means resend with a different event
+  and leave the comments alone; anything naming a file or line means fix the anchor.
+
+**What is deliberately unresolved.** Whether GitHub blocks self-*approval* the same way is not
+known. The `REQUEST_CHANGES` restriction is confirmed by observation; `APPROVE` has not been
+tested here, and GitHub's REST documentation for the reviews endpoint says nothing about
+self-review restrictions in either direction. Rather than guess, the skill attempts `APPROVE` and
+falls back to `COMMENT` on a 422, and the text says plainly that this one is unverified. The
+first run that settles it should record the answer in `RUNS.md` and replace the hedge with a
+fact.
+
+---
+
 ## 2026-07-30 — v0.4 — three depths, chosen by the user, and a cheaper pipeline
 
 **Why.** v0.3 made this the automatic post-`gh pr create` review. Measuring it honestly, that was
