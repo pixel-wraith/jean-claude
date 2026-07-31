@@ -57,8 +57,8 @@ be before it reaches the pull request.
 | Depth | Reviewers | Reports | Roughly |
 |-------|-----------|---------|---------|
 | **Quick** | correctness, security, pr-hygiene, docs-drift | critical and high only | ~7 agents |
-| **Standard** | the above plus performance, standards, test-quality | critical, high, medium — no nitpicks or praise | ~13 agents |
-| **Full** | all ten, adding requirements, data-compat, prior-feedback | everything, including nitpicks, questions, and up to 3 praise | ~19 agents |
+| **Standard** | the above plus performance, standards, test-quality | critical, high, medium — no nitpicks | ~13 agents |
+| **Full** | all ten, adding requirements, data-compat, prior-feedback | everything, including nitpicks and questions | ~19 agents |
 
 Phrase the question in plain English. Something like:
 
@@ -288,7 +288,8 @@ Field rules:
 - `domain` — your reviewer name, always.
 - `file` / `line` / `side` — omit and set `anchored: no` when the finding is not tied to a
   line in this diff. Otherwise `line` MUST be one of the valid comment lines given above.
-- `label` — one of: issue, suggestion, nitpick, question, todo, chore, note, praise, thought.
+- `label` — one of: issue, suggestion, nitpick, question, todo, chore, note, thought. There is
+  no `praise` label; this panel reports only things that need doing.
 - `severity` — one of: critical, high, medium, low, nit.
 - `evidence` — a real file:line reference and a quoted fragment. A finding with no evidence
   will be discarded, so do not submit one.
@@ -330,8 +331,8 @@ be posted.
 
 Filter the merged findings by the depth chosen in step 1:
 
-- **Full** — keep everything. Cap `praise` findings at 3; discard the rest of the praise.
-- **Standard** — keep `critical`, `high`, `medium`. Discard `low`, `nit` and all praise.
+- **Full** — keep everything.
+- **Standard** — keep `critical`, `high`, `medium`. Discard `low` and `nit`.
 - **Quick** — keep `critical` and `high`. Discard everything else.
 
 Findings removed here are **suppressed**, not refuted. They were never checked, so do not
@@ -415,9 +416,13 @@ Severity maps to decoration:
 
 Labels follow the Conventional Comments vocabulary — `issue` for a defect, `suggestion` for a
 concrete alternative, `nitpick` for a trivial preference, `question` where the reviewer needs
-information, `todo` for a small required change, `chore` for process work, `praise` for
-something done notably well, `thought` for a non-actionable observation, `note` for
-information the author should have.
+information, `todo` for a small required change, `chore` for process work, `thought` for a
+non-actionable observation, `note` for information the author should have.
+
+There is deliberately no `praise` label. Every comment this panel posts asks the author for
+something; a review that also hands out compliments makes the reader work out which comments
+need action and which do not. If a reviewer wants to flag that something was done well and
+should not be refactored away, that is a `note` — it carries information the author needs.
 
 The subject line is one sentence, no trailing period, written in plain English. The discussion
 explains why it matters — not just what the rule is.

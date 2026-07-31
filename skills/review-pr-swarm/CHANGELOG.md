@@ -8,6 +8,32 @@ Add new entries at the top. Include the date, a version, and a **Why** that name
 
 ---
 
+## 2026-07-31 — v0.7 — praise dropped from the vocabulary
+
+**Why.** The severity-to-decoration table applied a decoration to every finding, which produced
+`praise (if-minor)` on the #229 run — a compliment marked "take it or leave it". Decorations
+describe what the author must *do* about a comment, and praise asks for nothing, so none of the
+three applies.
+
+The narrow fix was a decoration exception. Jake went further and removed the label: every comment
+this panel posts should ask the author for something. A review that also hands out compliments
+makes the reader sort the actionable from the decorative, which is work the review should be
+doing for them.
+
+**What changed.** `praise` is gone from the label vocabulary, from the depth table, and from the
+reporting filter — Full no longer has a "cap praise at 3" rule and Standard no longer has to
+discard it. Reviewers are told explicitly there is no such label, so one does not invent it.
+
+If a reviewer wants to record that something was done well and should not be refactored away,
+that is a `note`: it carries information the author needs, and it takes a decoration honestly.
+
+**What this does not fix.** The same contradiction still exists for `thought` and `note`, the
+other two labels that ask nothing of the author — `thought (blocking)` means "non-actionable
+observation you must resolve before merge". No reviewer has produced either label across three
+runs, so it is latent rather than live, but the decoration table will apply one if they do.
+
+---
+
 ## 2026-07-31 — v0.6 — self-approval is blocked too, so a self-review is always a comment
 
 **Why.** v0.5 handled `REQUEST_CHANGES` but hedged on `APPROVE`, because the restriction had only
