@@ -8,6 +8,35 @@ Add new entries at the top. Include the date, a version, and a **Why** that name
 
 ---
 
+## 2026-07-31 — v0.6 — self-approval is blocked too, so a self-review is always a comment
+
+**Why.** v0.5 handled `REQUEST_CHANGES` but hedged on `APPROVE`, because the restriction had only
+been observed for one of them and GitHub's REST documentation mentions neither. Jake confirmed
+that self-approval is blocked in the same way, so the hedge is replaced with the fact.
+
+**What changed.**
+
+- **A self-authored review is always `COMMENT`.** No verdict of any kind is possible, so the
+  skill no longer attempts one or carries a fallback path for it. That removes a branch rather
+  than adding one — the v0.5 "try `APPROVE`, fall back on 422" logic is gone.
+
+- **The empty-review case is now handled, and it was the real gap.** v0.5 only warned about a
+  blocking review arriving as a neutral comment. But a clean review is worse: with no findings
+  and no `APPROVE` event, what lands is a comment saying nothing, which reads as a review that
+  crashed rather than one that passed. The body now opens with an explicit "this review would
+  approve — no findings survived verification at this depth".
+
+- **The 422 handler covers both self-review messages** rather than only the request-changes one,
+  and is reframed as a backstop: reaching it means the author check failed, not that the payload
+  was wrong.
+
+**How this was established:** by Jake, from experience, not from documentation or a run of this
+skill. GitHub's REST docs for the reviews endpoint still say nothing about self-review
+restrictions in either direction, so this note is the only record of why the skill behaves this
+way.
+
+---
+
 ## 2026-07-31 — v0.5 — knows it cannot request changes on your own pull request
 
 **Why.** The first real run (merge-lantern#244, logged in `RUNS.md`) submitted `REQUEST_CHANGES`

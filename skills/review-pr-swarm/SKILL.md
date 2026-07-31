@@ -457,43 +457,49 @@ If every finding is anchored, the body is just the one-line count.
 
 ### First: is the reviewer also the author?
 
-**GitHub will not let you request changes on your own pull request.** The reviews endpoint
-rejects it with a 422 and the message `Can not request changes on your own pull request`. In a
-solo repository that is every single review, so do not discover it by failing — check first.
+**GitHub does not let you review your own pull request with a verdict.** Both `REQUEST_CHANGES`
+and `APPROVE` are rejected with a 422 — `Can not request changes on your own pull request` and
+the equivalent for approval. Only `COMMENT` is permitted. In a one-person repository that is
+every single review, so do not discover it by failing — check first.
 
 ```bash
 gh pr view {{URL}} --json author --jq '.author.login'   # who wrote the PR
 gh api user --jq '.login'                               # who gh is authenticated as
 ```
 
-If those two match, the verdict table above still decides what the review *means*, but the event
-actually sent has to change:
+**If those two match, the event is always `COMMENT`.** There is no case where a self-review can
+carry a verdict, so do not attempt one and do not build a fallback for it.
 
-| Verdict the findings warrant | Event to send when reviewing your own PR |
-|------------------------------|------------------------------------------|
-| `REQUEST_CHANGES` | `COMMENT` — GitHub refuses the former outright |
-| `COMMENT` | `COMMENT` — unchanged |
-| `APPROVE` | Try `APPROVE`; on a 422, resend as `COMMENT` |
+The verdict table above still decides what the review *means*. It just cannot be expressed as a
+GitHub event, so it has to be said in words instead:
 
-The `APPROVE` row is deliberately hedged. The `REQUEST_CHANGES` restriction is confirmed — it was
-observed on merge-lantern#244 and is recorded in `RUNS.md`. Whether GitHub blocks self-approval
-the same way has **not** been verified here, and GitHub's REST documentation for this endpoint
-does not mention self-review restrictions at all. Attempt it and fall back rather than asserting
-either way. When a run settles the question, record it in `RUNS.md` and replace this paragraph
-with the fact.
+| Verdict the findings warrant | Event sent | What the body must say |
+|------------------------------|-----------|------------------------|
+| `REQUEST_CHANGES` | `COMMENT` | that it would request changes, and that the blocking findings still gate the merge |
+| `COMMENT` | `COMMENT` | nothing extra — the event already matches the meaning |
+| `APPROVE` | `COMMENT` | that nothing was found and it would have approved |
 
-**When the event is downgraded, say so in the review body.** Otherwise a review carrying blocking
-findings arrives as a neutral comment and reads as though nothing is wrong. Put this at the very
-top of the body, above the counts:
+**Say it at the very top of the body, above the counts.** A review carrying two blocking findings
+that arrives as a neutral comment reads as though nothing is wrong, and an empty comment review
+reads as though the run broke. Both are worse than the 422 was.
+
+For a would-be `REQUEST_CHANGES`:
 
 ```
-> **This review would request changes.** GitHub does not allow requesting changes on your own
-> pull request, so it is posted as a comment. The blocking findings below still need resolving
+> **This review would request changes.** GitHub does not allow a verdict on your own pull
+> request, so it is posted as a comment. The blocking findings below still need resolving
 > before merge.
 ```
 
-Report the downgrade in step 10 too, so a `COMMENT` verdict is never mistaken for "nothing
-serious was found".
+For a would-be `APPROVE`:
+
+```
+> **This review would approve.** GitHub does not allow a verdict on your own pull request, so
+> it is posted as a comment. No findings survived verification at this depth.
+```
+
+Report the same thing in step 10, so a `COMMENT` verdict is never mistaken for "nothing serious
+was found" — and an empty review is never mistaken for a failed run.
 
 ### Validate, then submit
 
@@ -524,11 +530,12 @@ gh api repos/{owner}/{repo}/pulls/{pr_number}/reviews \
 On a 422, read the message before doing anything — there are two unrelated causes and they need
 opposite responses.
 
-**`Can not request changes on your own pull request`** — the author check above should have
-caught this. Do not touch the comments. Resend the identical payload with `event` changed to
-`COMMENT`, and add the downgrade notice to the top of the body. Then work out why the check
-missed it: usually the PR author and the authenticated `gh` account differ in case, or `gh` is
-authenticated as a different account than expected.
+**A self-review error** — `Can not request changes on your own pull request`, or the equivalent
+for approval. The author check above should have caught this, so reaching here means the check
+failed rather than the payload being wrong. Do not touch the comments. Resend the identical
+payload with `event` set to `COMMENT`, and add the appropriate notice to the top of the body.
+Then work out why the check missed: usually the PR author and the authenticated `gh` account
+differ in case, or `gh` is authenticated as a different account than expected.
 
 **Anything naming a file or line** — an inline comment is anchored somewhere GitHub will not
 accept. Re-derive that file's valid lines from the diff, fix the payload, resubmit. **Never**
@@ -547,8 +554,8 @@ review-pr-swarm · PR #41 · Standard · dry run: no
 
 Posted 6 · suppressed 0 · refuted 5
 Verdict: COMMENT (would have been REQUEST_CHANGES — you authored this PR,
-  and GitHub does not allow requesting changes on your own. 2 blocking
-  findings still need resolving.)
+  and GitHub allows no verdict on your own. 2 blocking findings still
+  need resolving.)
 
 Reviewers run: security, performance, correctness, requirements, standards,
   docs-drift, pr-hygiene, test-quality
