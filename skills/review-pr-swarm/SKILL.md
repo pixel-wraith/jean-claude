@@ -89,12 +89,67 @@ Run these in order. They are cheap and everything downstream depends on them.
 
 ```bash
 gh auth status
-gh pr view {{URL}} --json number,title,body,author,baseRefName,headRefName,mergeable,commits,reviews,comments,files,statusCheckRollup,additions,deletions,url
-gh pr checkout {{URL}}
+gh pr view {{URL}} --json number,title,body,author,baseRefName,headRefName,mergeable,commits,reviews,comments,files,statusCheckRollup,additions,deletions,url,state,mergeCommit
 git fetch --all --prune
 ```
 
 Record `additions + deletions` — the PR hygiene reviewer needs the total change count.
+
+### Getting the PR's code — decide, do not assume
+
+**Do not run `gh pr checkout` unconditionally.** It fails or does damage in three situations that
+are all common, and all three have been hit in practice on this project:
+
+- The working tree has uncommitted work. Checking out drags it onto another branch.
+- The PR is merged and its head branch was deleted, which GitHub does by default. There is
+  nothing left for `gh pr checkout` to fetch.
+- The PR's code is already reachable from `HEAD`, because it was merged into the branch you are
+  on. Checking out achieves nothing.
+
+Work through these in order and take the first that applies.
+
+**1. Is the PR's code already here?**
+
+```bash
+MERGE_SHA=$(gh pr view {{URL}} --json mergeCommit --jq '.mergeCommit.oid // empty')
+[ -n "$MERGE_SHA" ] && git merge-base --is-ancestor "$MERGE_SHA" HEAD 2>/dev/null && echo "already at PR state"
+```
+
+Also true if `git branch --show-current` is already the PR's `headRefName`. Either way: **do
+nothing.** Reading any file gives the post-PR state, and `git show $MERGE_SHA -- <path>` gives the
+diff. Say so in the final report, because a reviewer told to "check out the branch" will otherwise
+waste a turn discovering it is already there.
+
+**2. Is the working tree clean?**
+
+```bash
+git status --porcelain
+```
+
+Empty output means clean, so `gh pr checkout {{URL}}` is safe. Record the branch you started on
+and say in the final report that the checkout happened, so the user knows they are somewhere else
+when it finishes.
+
+**3. Otherwise — stop and ask.**
+
+Do not stash, do not force, do not check out anyway. Show the user exactly what is uncommitted
+and let them choose: commit it, stash it themselves, or have the review run against a fetched ref
+without switching branches (option 4 below). Their uncommitted work is not yours to move.
+
+**4. Fallback when the branch is gone.**
+
+A merged PR whose branch was deleted is still fully reviewable — GitHub keeps `refs/pull/N/head`
+indefinitely:
+
+```bash
+git fetch origin refs/pull/{{PR_NUMBER}}/head
+git rev-parse FETCH_HEAD    # the PR's head commit
+```
+
+That fetch does not touch the working tree. Read individual files with
+`git show FETCH_HEAD:<path>`. Reviewers can read anything they need this way, but **cannot run
+tests or builds** against it, so tell them so in their context block — a reviewer that expects to
+run the suite and cannot will otherwise report a false problem.
 
 ### Read CI rather than re-running it
 
@@ -224,7 +279,25 @@ PR: #{pr_number} — {title}
 URL: {url}
 Base branch: {baseRefName}
 Total changes: {additions + deletions}
-Branch is checked out at the repository root; read any file you need.
+{how to reach the code — fill in from whichever case step 2 landed on:
+
+  Checked out:      "The PR's branch is checked out at the repository root. Reading any file
+                     gives its post-PR state. You can run tests and builds."
+
+  Already at HEAD:  "The repository at <path> is already at this PR's state — do NOT check
+                     anything out. Reading any file gives the post-PR state. For the diff use
+                     `git show <sha> -- <path>`. You can run tests and builds."
+
+  Fetched ref only: "The PR's branch no longer exists, so nothing is checked out. Read files
+                     with `git show FETCH_HEAD:<path>`. You CANNOT run tests or builds against
+                     this PR — do not report a problem you could only confirm by running
+                     something, and say so plainly instead."
+
+Never tell a reviewer it can run tests when it cannot. A reviewer that expects to run the suite
+and finds it missing will report the absence as a finding.}
+
+{if the working tree has unrelated uncommitted changes, list them here and say they are NOT part
+of this PR and must be ignored — otherwise a reviewer will review them.}
 
 ## PR description
 

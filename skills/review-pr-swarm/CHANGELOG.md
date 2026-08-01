@@ -8,6 +8,49 @@ Add new entries at the top. Include the date, a version, and a **Why** that name
 
 ---
 
+## 2026-08-01 — v0.8 — stops assuming `gh pr checkout` will work
+
+**Why.** Step 2 ran `gh pr checkout` unconditionally. It breaks in three situations, and all
+three were true of this project at the same moment while writing this entry:
+
+- **Dirty working tree.** Checking out drags uncommitted work onto another branch. Hit on the
+  #229 run, where the tree had unrelated changes that had to be protected by hand.
+- **Merged PR, branch deleted.** GitHub deletes the head branch on merge by default, so there is
+  nothing left to fetch. `gh pr checkout 237` has nothing to do.
+- **Code already at HEAD.** If the PR was merged into the branch you are on, checking out
+  achieves nothing. Also hit on #229, where HEAD *was* the squash-merge of the PR under review.
+
+Both real runs worked around this by hand. The skill's own step 2 has never successfully run
+against a merged pull request.
+
+**What changed.** Step 2 now decides rather than assumes, taking the first case that applies:
+already at the PR's state → do nothing; clean tree → check out; dirty tree → **stop and ask**,
+never stash or force, because the user's uncommitted work is not the skill's to move.
+
+**The useful discovery:** GitHub keeps `refs/pull/N/head` indefinitely, even after the branch is
+deleted. Verified by fetching PR #237's head — `c8c3fe6` — long after its branch was gone, without
+touching the working tree. So merged PRs are fully reviewable; the skill was simply using the
+wrong mechanism to reach them. That is now the documented fallback.
+
+**The honest limitation of that fallback:** files can be read with `git show FETCH_HEAD:<path>`,
+but nothing can be *run*. That matters more than it sounds — the most reliable findings across
+both runs came from verifiers that executed something (mutation tests, a real build, a browser
+measurement) rather than reasoning about it. So the reviewer context block now states which of
+the three situations applies and whether running tests is possible, because a reviewer that
+expects a test suite and cannot find one will report its absence as a finding.
+
+The context block also now lists any unrelated uncommitted files and says they are not part of
+the PR. On #229 that had to be added by hand to stop reviewers reviewing them.
+
+**Considered and rejected:** an isolated `git worktree`, which would never touch the user's tree
+at all. Rejected because a fresh worktree has no `node_modules` — 691 MB in this project — so
+every reviewer wanting to run the suite would need an install first, or fall back to reading.
+Sharing `node_modules` by symlink was also rejected: a PR that changes a dependency would then be
+tested against the wrong tree, and a test passing or failing for the wrong reason is worse than
+not running it.
+
+---
+
 ## 2026-07-31 — v0.7 — every comment must ask for something: praise, thought and note removed
 
 **Why.** The severity-to-decoration table applied a decoration to every finding, which produced
