@@ -8,6 +8,43 @@ Add new entries at the top. Include the date, a version, and a **Why** that name
 
 ---
 
+## 2026-08-04 — v0.10 — every finding must say how the diff caused it
+
+**Correction to an earlier entry.** The v0.2 note said this rule "appears in every reviewer file
+but only as a bullet in a list". That was wrong, and the error mattered — it made the problem look
+like one of emphasis when it was one of absence. Checking the files: only **two of ten** mentioned
+scope at all. `docs-drift` had it explicitly at line 36; `standards` had one clause at line 114.
+The other eight — correctness, security, performance, test-quality, requirements, pr-hygiene,
+data-compat, prior-feedback — had never been told it mattered.
+
+**Why it needed fixing.** Across both #229 runs, "pre-existing, not introduced by this diff" was
+the single most common reason a finding was thrown out — roughly ten of eighteen refutations.
+Each cost a verifier agent to establish something one `git log` would have shown:
+
+- **security** — a hardening suggestion for `auth.ts`, which is not in the diff at all
+- **correctness** — console-only error handling, verbatim in `signup/+page.svelte` since #197
+- **docs-drift** — architecture.md wording, where the doc described the code accurately either way
+- **test-quality** — the button-only test guard, pre-existing scoping the diff only widened
+
+**What changed.** Every finding now carries a `scope` field: one line saying how this diff
+introduced or worsened the problem. Step 5 drops findings whose scope is missing or amounts to
+"this problem exists" — before merging, before verification. The scope block is in all ten
+reviewer files, not two.
+
+**The nuance that stops it being a blunt rule, and this is the part to preserve.** "Pre-existing"
+does not mean out of scope. On #229 the `/login` page was new and copied a flawed handler from
+`/signup` — pre-existing in one file, genuinely new in another. That finding was the highest
+severity of the whole exercise, and a rule reading "if it exists elsewhere, drop it" would have
+killed it. So the field asks *did this diff introduce or worsen it*, never *does this exist
+elsewhere*, and every reviewer file spells out the difference with that exact case.
+
+**Second required field, same mechanism as v0.9's `rule`.** Both gates sit in step 5, before
+verification, so a bad finding dies for free rather than costing an agent to refute. Step 10
+reports both drop counts alongside the refuted ones, so a reviewer that starts failing either
+check becomes visible instead of merely going quiet.
+
+---
+
 ## 2026-08-04 — v0.9 — the standards reviewer must cite a rule, mechanically
 
 **Why.** `standards.md` already told the reviewer to quote the convention it was applying and say

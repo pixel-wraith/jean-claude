@@ -368,6 +368,8 @@ Field rules:
 - `evidence` — a real file:line reference and a quoted fragment. A finding with no evidence
   will be discarded, so do not submit one.
 - `rule` — **required for the standards reviewer only, and discarded without it.** See below.
+- `scope` — **required for every reviewer, and discarded without it.** One line saying how *this
+  diff* introduced or worsened the problem. See below.
 - `subject`, `discussion`, `recommendation` — written to the standard in `writing-style.md`.
   Note how the example above explains what the code is doing before saying what is wrong with
   it, states the cost in terms of what a customer experiences, and explains the concept before
@@ -376,6 +378,46 @@ Field rules:
 If you find nothing, return exactly `NO FINDINGS` and a one-sentence explanation of what
 you checked.
 ````
+
+### The `scope` field — every reviewer
+
+Add this to every reviewer's launch prompt:
+
+````
+Every finding you return MUST carry a `scope` field: one line saying how **this diff** introduced
+or worsened the problem.
+
+```
+scope: this file is new in this diff — the whole handler arrived with it
+scope: line 129 was added by this diff
+scope: the diff changed the caller, so this branch is now reachable where it was not before
+scope: pre-existing in signup/+page.svelte, but this diff copies it into a new file — a new
+  instance in new code
+```
+
+A finding whose `scope` is missing, or which amounts to "this problem exists", is discarded
+before it is verified. You are reviewing a change, not the codebase.
+
+**"Pre-existing" does not automatically mean out of scope, and this is the part to get right.**
+A new file that copies a flaw from an old one is a real finding — the flaw is new in that file
+even though it existed elsewhere. A diff that makes an existing problem worse is a real finding.
+What is *not* a finding is a problem the diff neither created nor worsened and merely happens to
+sit near.
+
+So the question is never "does this exist elsewhere?" It is **"did this diff introduce or worsen
+it?"** If the honest answer is no, do not submit it, however real the problem is.
+
+If you are unsure, check rather than guess. `git log -L<start>,<end>:<file>` shows when specific
+lines last changed; `git show <sha> -- <path>` shows what this diff actually did to a file.
+````
+
+This is the most expensive class of mistake the panel makes. Across the two #229 runs,
+"pre-existing, not introduced by this diff" was the single most common refutation — roughly ten
+of eighteen kills — and each one cost a verifier agent to establish something the reviewer could
+have checked itself with one `git log`.
+
+Note that eight of the ten reviewer files never mentioned scope at all before this was added.
+Only `docs-drift` and `standards` did.
 
 ### The `rule` field — standards reviewer only
 
@@ -418,11 +460,18 @@ that starts failing this check is visible rather than silently quiet.
 
 ## Step 5 — Merge overlapping findings
 
-**First, drop standards findings with no cited rule.** Any finding with `domain: standards` whose
-`rule` field is missing, vague, or cites fewer than two sibling files for an unwritten pattern is
-discarded here — before merging, before verification, before it can cost an agent. Keep a count
-and report it in step 10 next to the refuted findings, so a reviewer that starts failing this
-check shows up rather than just going quiet.
+**First, drop findings that fail their required fields.** Two checks, both before merging and
+before verification, so a bad finding dies for free instead of costing an agent to refute:
+
+- **`scope` — every reviewer.** Drop any finding whose `scope` is missing, or which amounts to
+  "this problem exists" rather than saying how this diff introduced or worsened it. Remember that
+  a new file copying an old flaw *is* in scope; the test is introduced-or-worsened, not
+  exists-elsewhere.
+- **`rule` — standards only.** Drop any `domain: standards` finding whose `rule` is missing,
+  vague, or cites fewer than two sibling files for an unwritten pattern.
+
+Keep a count of each and report them in step 10 next to the refuted findings, so a reviewer that
+starts failing either check shows up rather than just going quiet.
 
 Then collect every finding from every reviewer. Then compare them pairwise on `file` + `line`:
 
@@ -687,7 +736,7 @@ running twice.
 ```
 review-pr-swarm · PR #41 · Standard · dry run: no
 
-Posted 6 · suppressed 0 · refuted 5 · dropped 2 (standards, no cited rule)
+Posted 6 · suppressed 0 · refuted 5 · dropped 3 (2 no scope, 1 standards no rule)
 Verdict: COMMENT (would have been REQUEST_CHANGES — you authored this PR,
   and GitHub allows no verdict on your own. 2 blocking findings still
   need resolving.)

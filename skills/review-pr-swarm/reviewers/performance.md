@@ -94,3 +94,36 @@ else what it means has failed.
 Your findings go through an editor before they are posted, so a lapse will be caught — but the
 editor can only rewrite what you gave it. If your explanation is thin, the polished version
 will be thin too.
+
+---
+
+## Before you write anything: is it yours to report?
+
+Every finding you return carries a `scope` field — one line saying how **this diff** introduced
+or worsened the problem:
+
+```
+scope: this file is new in this diff — the whole handler arrived with it
+scope: line 129 was added by this diff
+scope: the diff changed the caller, so this branch is now reachable where it was not before
+scope: pre-existing in signup/+page.svelte, but this diff copies it into a new file — a new
+  instance in new code
+```
+
+**A finding whose `scope` is missing, or which amounts to "this problem exists", is discarded
+before anyone reads it.** You are reviewing a change, not the codebase.
+
+Get the nuance right, because a blunt reading of this rule would suppress real findings.
+"Pre-existing" does **not** automatically mean out of scope. A new file that copies a flaw from
+an old one is a genuine finding — the flaw is new in that file. A diff that makes an existing
+problem worse is a genuine finding. What is not a finding is a problem the diff neither created
+nor worsened and merely happens to sit near.
+
+The question is never "does this exist elsewhere?" It is **"did this diff introduce or worsen
+it?"** If the honest answer is no, leave it out however real the problem is.
+
+This exists because it is the panel's most expensive mistake. Across two runs of this skill,
+"pre-existing, not introduced by this diff" was the most common reason findings were thrown out
+during verification — and each one cost an agent to establish something a single `git log` would
+have shown. Check rather than guess: `git log -L<start>,<end>:<file>` shows when specific lines
+last changed, and `git show <sha> -- <path>` shows what this diff actually did to a file.
