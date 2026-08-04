@@ -8,6 +8,40 @@ Add new entries at the top. Include the date, a version, and a **Why** that name
 
 ---
 
+## 2026-08-04 — v0.11 — a verifier may lower a severity, never raise one
+
+**Why.** `verifier.md` said "Do not adjust the severity. That is the reviewer's call and the level
+filter's job", so a verifier that spotted a wrong rating had nowhere to put it. On the #229 run
+one did: the mobile tap-target finding was rated `medium`, and the verifier confirmed every fact
+in it — measured the box in a browser, reproduced the stray tap — then noted that a 33-pixel
+mobile-only strip leading to a harmless page is defensible at `low`, not `medium`. The observation
+was discarded and the finding posted at the inflated rating.
+
+**Why it mattered more after v0.4.** Severity used to decide only whether a finding was posted.
+Since the depth filter moved ahead of verification, severity decides whether a finding is
+*verified at all*. A rating stopped being a label on the output and became a gate on the pipeline.
+
+**What changed.** Verifiers may return an optional `SEVERITY:` line with `VERDICT: stands`, and
+step 7 applies it — downward only. A line that raises a severity is ignored, because a verifier
+that promotes a finding has stopped being a skeptic and become its author, which is the role
+separation the design rests on. The depth filter is re-applied afterwards, so a finding lowered
+below the threshold is dropped exactly as if it had arrived at the lower rating. The decoration
+follows, since it derives from severity.
+
+**The asymmetry, stated in the skill because it is a real limit rather than an oversight.**
+Verifiers only ever see findings that survived step 6, so they can catch a rating that was too
+high and never one that was too low. An under-rated finding is dropped before verification and no
+agent ever looks at it — which is the more dangerous direction, and it is structurally invisible.
+Fixing it would mean verifying below-threshold findings, which is precisely the cost step 6 exists
+to avoid. The mitigation is that step 9 already lists suppressed findings with their severities,
+so the user can spot an under-rating by eye.
+
+Adjustments are reported in step 9 with the verifier's reason and whether the change dropped the
+finding, so a reviewer that consistently over-rates becomes visible and its severity calibration
+section can be fixed.
+
+---
+
 ## 2026-08-04 — v0.10 — every finding must say how the diff caused it
 
 **Correction to an earlier entry.** The v0.2 note said this rule "appears in every reviewer file

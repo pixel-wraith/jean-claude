@@ -529,6 +529,32 @@ to refute when uncertain.
 Findings that are refuted **never reach the PR**. Keep them — they are reported to the user
 in step 9 and they are the primary signal for tuning the reviewer prompts.
 
+### When a verifier lowers a severity
+
+A verifier may return an optional `SEVERITY:` line alongside `VERDICT: stands`, when the finding
+is real but milder than the reviewer rated it. Apply it, with two rules:
+
+- **Downward only.** Accept `critical → high → medium → low → nit`. Ignore any line that raises
+  the severity — a verifier that promotes a finding has stopped being a skeptic and become its
+  author.
+- **Re-apply the depth filter afterwards.** A finding lowered below the depth's threshold is
+  dropped, exactly as if it had arrived at the lower rating in step 6. Lowering `medium` to `low`
+  on a Standard run removes it from the review.
+
+Also update the decoration, since it is derived from severity — a finding lowered from `medium`
+to `low` moves from `(non-blocking)` to `(if-minor)`.
+
+Report every adjustment in step 9, with the verifier's reason. A reviewer that consistently
+over-rates is a prompt to fix in its severity calibration section, and that only shows up if the
+adjustments are visible.
+
+**What this cannot catch.** Verifiers only ever see findings that survived step 6, so they can
+catch a rating that was too *high* and never one that was too *low* — an under-rated finding was
+already dropped before verification and no agent ever looks at it. That direction is unfixable
+without verifying below-threshold findings, which is the cost step 6 exists to avoid. The
+mitigation is that step 9 lists suppressed findings with their severities, so the user can spot
+an under-rating themselves.
+
 ---
 
 ## Step 8 — Rewrite everything for the reader
@@ -737,6 +763,7 @@ running twice.
 review-pr-swarm · PR #41 · Standard · dry run: no
 
 Posted 6 · suppressed 0 · refuted 5 · dropped 3 (2 no scope, 1 standards no rule)
+Severity lowered by verifier: 1
 Verdict: COMMENT (would have been REQUEST_CHANGES — you authored this PR,
   and GitHub allows no verdict on your own. 2 blocking findings still
   need resolving.)
@@ -757,6 +784,9 @@ Not reported at this depth (raised, never verified):
   performance · +page.svelte:129 · "hover preloads 11 KB" (low)
   → Full would have checked and reported these.
 ```
+
+List any severity a verifier lowered, with its reason and whether the change dropped the finding
+from the review — a reviewer that consistently over-rates only becomes visible if these are shown.
 
 Always list refuted findings with the verifier's reason. Always list suppressed findings when
 the depth held anything back — and be precise that those were never verified, so they are

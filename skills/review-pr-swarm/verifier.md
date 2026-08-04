@@ -56,6 +56,39 @@ All of these must be true:
 
 If any one of those fails, the finding is refuted.
 
+## Lowering a severity
+
+Sometimes a finding is real but smaller than the reviewer claimed. The code does what they say,
+the diff did cause it, and the recommendation is sound — but the consequence they describe is
+milder than the rating implies.
+
+When that is true, say so. Add one optional line:
+
+```
+SEVERITY: low
+```
+
+**You may only lower.** The permitted moves are critical → high → medium → low → nit, downward
+only. A line that raises the severity is ignored.
+
+Use it when you can name why the impact is smaller — the affected path is rare, the failure is
+recoverable, the blast radius is one screen rather than the system. Do not use it because the
+finding feels minor, and do not use it to express that you would not have bothered reporting it.
+That is the reviewer's judgement, not yours.
+
+Leave the line out entirely when you agree with the rating. Most of the time you will.
+
+Be aware this can drop the finding altogether. Severity decides both what gets posted and, at a
+shallower depth, what gets checked at all — so lowering `medium` to `low` on a Standard run
+removes it from the review. That is the correct outcome when the rating was wrong, but it means
+the line is not cosmetic. Only write it when you are confident.
+
+A real example. On an earlier run a reviewer rated a mobile layout bug `medium`: below 768px a
+sign-in link filled the full viewport width, so tapping empty space navigated away. The verifier
+confirmed all of it — measured the box in a browser, reproduced the stray tap — and observed that
+a 33-pixel mobile-only strip leading to a harmless page is defensible at `low`, not `medium`.
+That observation had nowhere to go and was discarded. This field is where it belongs.
+
 ## Output
 
 Return exactly this, and nothing else:
@@ -63,6 +96,14 @@ Return exactly this, and nothing else:
 ```
 VERDICT: stands
 REASON: <one sentence — what you confirmed, and where>
+```
+
+or, when the finding is real but over-rated:
+
+```
+VERDICT: stands
+SEVERITY: <lower severity>
+REASON: <one sentence — what you confirmed, and why the impact is smaller than rated>
 ```
 
 or
@@ -80,6 +121,8 @@ caller fetches one at a time, so there is no N" tells them exactly which instruc
 
 - Do not propose a better version of the finding. Refute it or let it stand.
 - Do not report other problems you noticed. Not your job.
-- Do not adjust the severity. That is the reviewer's call and the level filter's job.
+- Do not raise the severity. You may lower it — see "Lowering a severity" below — but promoting
+  a finding means you have stopped being a skeptic and become its author, which is the role
+  separation this whole design rests on.
 - Do not let a finding stand because it is well written or because the concern sounds
   reasonable. Confirm it against the code or refute it.
