@@ -8,6 +8,49 @@ Add new entries at the top. Include the date, a version, and a **Why** that name
 
 ---
 
+## 2026-08-04 — v0.9 — the standards reviewer must cite a rule, mechanically
+
+**Why.** `standards.md` already told the reviewer to quote the convention it was applying and say
+where it came from, and that a finding without one "is your taste and must not be posted". The
+reviewer ignored it. On the #229 run it produced three findings and all three were refuted:
+
+- a comment style it claimed the project used, where the form it demanded appears in **zero**
+  files of that type and the sibling page does exactly what the diff did
+- a claim that a decorative character was the only unhidden one in the codebase, which was
+  factually wrong — the same file had several
+- a colour-contrast threshold the reviewer itself conceded was written down nowhere, objecting to
+  something the shared link component already does
+
+Each cost a verifier agent to disprove.
+
+**The uncomfortable bit.** Run 2 produced zero findings from this reviewer and listed seven
+candidates it had dropped with reasons, which looks like the file working. It was not — the
+correction was in that run's launch prompt, written by hand:
+
+> "In a previous run all three findings from this reviewer were thrown out at verification
+> because they were unwritten preferences dressed as standards. Do not repeat that."
+
+So run 2 showed the instruction works when it is forceful and up front, not that the file was
+fixed. In the file it still sat at line 82 of 105, after everything else.
+
+**What changed.** The instruction is now a required field rather than a request. Standards
+findings carry a `rule` field naming the convention and its source — a document path with a
+quoted line, or two or more sibling files establishing an unwritten pattern. Step 5 discards any
+standards finding whose `rule` is missing or vague **before merging and before verification**, and
+step 10 reports the count next to the refuted ones so a reviewer that starts failing the check is
+visible rather than silently quiet.
+
+Two things follow from putting the gate before verification rather than after. A preference-shaped
+finding now dies for free instead of costing an agent to refute. And the reviewer file leads with
+the requirement and the three failures that produced it, rather than closing with a note.
+
+**Why this reviewer alone gets a field no other has.** Its own severity table says `critical —
+essentially never`. It is the only reviewer whose entire job is judging against rules that may
+not exist, so the line between "documented convention" and "my taste" is thinner here than
+anywhere else on the panel.
+
+---
+
 ## 2026-08-01 — v0.8 — stops assuming `gh pr checkout` will work
 
 **Why.** Step 2 ran `gh pr checkout` unconditionally. It breaks in three situations, and all

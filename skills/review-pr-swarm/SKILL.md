@@ -367,6 +367,7 @@ Field rules:
 - `severity` — one of: critical, high, medium, low, nit.
 - `evidence` — a real file:line reference and a quoted fragment. A finding with no evidence
   will be discarded, so do not submit one.
+- `rule` — **required for the standards reviewer only, and discarded without it.** See below.
 - `subject`, `discussion`, `recommendation` — written to the standard in `writing-style.md`.
   Note how the example above explains what the code is doing before saying what is wrong with
   it, states the cost in terms of what a customer experiences, and explains the concept before
@@ -376,11 +377,54 @@ If you find nothing, return exactly `NO FINDINGS` and a one-sentence explanation
 you checked.
 ````
 
+### The `rule` field — standards reviewer only
+
+Add this to the standards reviewer's launch prompt, and to no other reviewer's:
+
+````
+Every finding you return MUST carry an extra field:
+
+```
+rule: docs/internal-context.md:63 — "Every pull request must come in under 300 changes"
+```
+
+or, where the convention is unwritten but the codebase follows it consistently:
+
+```
+rule: unwritten, established by src/lib/a.ts:12, src/lib/b.ts:30, src/lib/c.ts:8 — all three
+  import through the $lib alias rather than a relative path
+```
+
+The `rule` field is a **gate, not a formality**. A finding whose `rule` is missing, vague, or
+cites fewer than two sibling files for an unwritten pattern is discarded before it is verified.
+Nobody will read it and nobody will argue with it — it is dropped.
+
+That is deliberate. On an earlier run this reviewer produced three findings and all three were
+thrown out during verification, every one an unwritten preference presented as a project
+standard: a comment style the codebase does not actually use, a claim about decorative glyphs
+that was factually wrong, and a colour-contrast rule the project has never written down. Each
+cost an agent to disprove. The `rule` field makes that failure free instead.
+
+If you cannot fill `rule` in honestly, you do not have a finding. Return `NO FINDINGS` and say
+what you checked — that is a good outcome, not a failed one.
+````
+
+**Enforce it in step 5, before merging.** Drop any `domain: standards` finding whose `rule` is
+absent or does not cite either a document path with a quoted line, or two or more sibling files.
+Count what you dropped and report it in step 10 alongside the refuted findings, so a reviewer
+that starts failing this check is visible rather than silently quiet.
+
 ---
 
 ## Step 5 — Merge overlapping findings
 
-Collect every finding from every reviewer. Then compare them pairwise on `file` + `line`:
+**First, drop standards findings with no cited rule.** Any finding with `domain: standards` whose
+`rule` field is missing, vague, or cites fewer than two sibling files for an unwritten pattern is
+discarded here — before merging, before verification, before it can cost an agent. Keep a count
+and report it in step 10 next to the refuted findings, so a reviewer that starts failing this
+check shows up rather than just going quiet.
+
+Then collect every finding from every reviewer. Then compare them pairwise on `file` + `line`:
 
 - **Same location, same underlying problem** → merge into one finding. Keep the clearer
   wording, keep the highest severity, and list both domains in the footer
@@ -643,7 +687,7 @@ running twice.
 ```
 review-pr-swarm · PR #41 · Standard · dry run: no
 
-Posted 6 · suppressed 0 · refuted 5
+Posted 6 · suppressed 0 · refuted 5 · dropped 2 (standards, no cited rule)
 Verdict: COMMENT (would have been REQUEST_CHANGES — you authored this PR,
   and GitHub allows no verdict on your own. 2 blocking findings still
   need resolving.)
