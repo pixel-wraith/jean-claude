@@ -8,6 +8,77 @@ Add new entries at the top. Include the date, a version, and a **Why** that name
 
 ---
 
+## 2026-08-04 — v0.12 — a real run cost ~1M tokens and posted essays
+
+**Why.** Jake ran this on another machine at Standard depth. It burned close to a million tokens
+on one review, and the comments it posted were far too long to read.
+
+Both are mine. The second especially — `editor.md` said "rewritten comments will usually be
+**longer**… do not compress to save space" and `writing-style.md` said "length is not the enemy".
+All three worked examples in the style guide were long ones, so it taught verbosity by
+demonstration.
+
+### Where the tokens went
+
+Extrapolated from measured per-agent numbers on the #229 run, which lands almost exactly on what
+Jake saw:
+
+| Stage | Agents | Avg each | Subtotal |
+|-------|--------|----------|----------|
+| Reviewers | 7 | ~76k | ~530k |
+| Verifiers | 8 | ~45k | ~360k |
+| Editor | 1 | ~48k | ~48k |
+
+The cost was **per agent**, not agent count. Only ~6k of a reviewer's 76k was prompt; the rest
+was exploration — 11 to 41 tool calls each, the expensive ones building the project, driving a
+browser, running mutation tests.
+
+### What changed
+
+**Reviewers and the editor run on the cheaper model.** Verifiers stay on the strong one. Reviewers
+search and read; deciding whether a plausible finding is actually *true* is the hard call and it
+happens in verification. Largest single saving, no coverage lost.
+
+**Reviewers no longer run anything.** No builds, no test suites, no browsers, no mutation tests —
+read the diff, the surrounding code, the callers, the docs, and stop. That work moved to the
+verifier, which is the right place for it: verifiers only see findings that survived filtering, so
+proving is worth paying for there and was pure waste in a reviewer whose finding later gets
+dropped. `verifier.md` now says explicitly that running things is its job and reasoning is the
+fallback.
+
+**Non-blocking findings are verified in batches of four.** Critical and high keep their own
+independent skeptic, because being wrong about a blocking finding is the most expensive mistake
+available. Eight verifier agents become three or four. The trade is named in the skill: findings
+verified in one context can influence each other, and independent skeptics are part of why the
+refute rate is as high as it is — so batching is confined to where being wrong costs least.
+
+**Prompts trimmed.** The scope block went from 33 lines to 12 in each of ten files.
+`writing-style.md` dropped from 1,381 words to 892. Every agent reads these fresh, so it compounds.
+
+Agent counts per depth are now roughly 6 / 11 / 15, down from 7 / 13 / 19.
+
+### Comment length
+
+**Target 100 words, hard cap 150**, code blocks excluded. Overflow goes in a `<details>` block,
+which GitHub renders collapsed — the review scans short and the depth is one click away.
+
+The useful diagnosis is not "I said longer". It is that the bulk was the comment *proving itself*
+— mechanism traces, library internals, ruled-out alternatives. But every finding reaching the
+author has already survived a verifier whose whole job was to refute it. **The comment is not
+where the argument is won; it is where someone is told what to do.** Both files now say to cut
+proof first, and to cut proof rather than explanation: the six-word gloss on an unfamiliar term
+stays, the three sentences establishing that the finding is real go.
+
+The style guide's worked example now shows the same finding at 250 words and at 95, so it teaches
+brevity by demonstration rather than the opposite.
+
+**Not adopted:** the honest expectation is roughly 30-35% fewer tokens and a considerably larger
+cost reduction, since the model swap changes the bill rather than the count. If volume is still
+too high after a real run, the remaining lever is cutting the Standard roster from seven reviewers
+to five.
+
+---
+
 ## 2026-08-04 — v0.11 — a verifier may lower a severity, never raise one
 
 **Why.** `verifier.md` said "Do not adjust the severity. That is the reviewer's call and the level

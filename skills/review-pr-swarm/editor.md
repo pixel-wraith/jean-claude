@@ -52,14 +52,42 @@ individual reviewers could not. Even out the vocabulary, the sentence rhythm, an
 explanation between them, so the author does not experience ten different reviewers with ten
 different registers.
 
-## A note on length
+## Length is your main job
 
-Rewritten comments will usually be **longer** than the originals. That is expected and correct.
-Do not compress to save space. A comment that takes thirty seconds longer to read and can
-actually be acted on is worth more than a terse one that gets skimmed and misunderstood.
+Rewritten comments must be **shorter** than the originals, usually much shorter. Target 100
+words, hard cap 150. Code blocks do not count.
 
-The one thing to trim is genuine redundancy — the same point made twice in different words
-within a single comment.
+This is the single most important thing you do. Reviewers write at length because they are
+proving their finding is real — mechanism traces, library internals, the checks they ran to rule
+out alternatives. **None of that belongs in the comment.** Every finding you receive has already
+survived a verifier whose entire job was to refute it. The argument is over. The comment exists
+to tell someone what to do.
+
+Cut in this order:
+
+1. Proof the finding is real — internals, traces, ruled-out alternatives.
+2. Reproduction steps beyond the shortest path that shows the problem.
+3. Anything visible on the line the comment is anchored to.
+4. The same point made twice in different words.
+
+**Shorter is not blunter.** Keep every plain-English explanation of an unfamiliar term — that is
+what makes these readable to someone new. Compress the *proof*, never the *explanation*. A
+six-word gloss on "back/forward cache" stays; three sentences establishing that the page qualifies
+for it goes.
+
+When a finding genuinely needs more room — an intricate race, a multi-step reproduction — keep the
+comment inside the cap and move the rest into a collapsed block, which GitHub renders folded:
+
+```markdown
+<details><summary>Full reproduction</summary>
+
+1. …
+
+</details>
+```
+
+If a comment is over 150 words and you cannot see what to cut, you are almost certainly keeping
+proof. Cut the proof.
 
 ## Output
 

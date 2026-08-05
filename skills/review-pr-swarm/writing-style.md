@@ -1,193 +1,138 @@
 # How to write a review comment
 
-Every comment this panel posts is read by the engineer who wrote the code. Assume that person
-is **junior**: competent, but new to this codebase, and not necessarily familiar with the
-frameworks, the project's history, or the vocabulary senior engineers use with each other.
+Every comment this panel posts is read by the engineer who wrote the code. Assume that person is
+**junior**: competent, but new to this codebase, and not fluent in the framework's vocabulary.
 
-A comment they cannot act on without asking someone else what it means has failed, no matter
-how correct it is.
+Two things have to be true at once, and they are not in tension:
 
-This file governs the `subject`, `discussion` and `recommendation` of every finding. Read it
-before you write anything.
+- They can act on it without asking anyone what it means.
+- It is **short**.
 
----
-
-## The reader you are writing for
-
-They can read code. They cannot read your mind.
-
-They do not know:
-
-- What the acronyms and shorthand mean — N+1, bfcache, CSRF, idempotent, race condition,
-  trust boundary, memoisation, hydration, tree-shaking.
-- Why this codebase does things a particular way, or what was decided in some earlier pull
-  request.
-- What a referenced issue number was about.
-- Which parts of the framework are doing work invisibly on their behalf.
-
-They do know how to read a file, run a test, and apply a fix — **if you tell them plainly what
-is wrong and what to do.**
+A comment nobody can follow has failed. So has a comment nobody finishes reading.
 
 ---
 
-## Hard rules
+## Length
 
-**1. Never use a technical term without explaining it in the same breath.**
+**Target 100 words. Hard cap 150.** Code blocks do not count — they are scanned, not read.
 
-The first time a comment uses a term the reader may not know, explain it in ordinary words
-right there, then name it. Do not send them to a search engine mid-comment.
+If a comment will not fit, it is almost always trying to *prove itself*. It does not need to.
+Every finding that reaches the author has already survived an independent verifier whose whole
+job was to refute it. The evidence lives in the finding's `evidence` field and the verifier's
+reason. **The comment is not where you win the argument. It is where you tell someone what to
+do.**
 
-> The browser makes one separate database request per repository instead of asking for all of
-> them at once. With 40 repositories that is 40 round trips. (This pattern has a name — an
-> "N+1 query" — and it is worth searching for.)
+Cut, in this order:
 
-Naming the concept *after* explaining it is good: it teaches the term without gatekeeping the
-fix behind it.
+1. Proof that the finding is real — mechanism traces, library internals, the checks you ran to
+   rule out alternatives.
+2. Reproduction steps beyond the shortest path that shows the problem.
+3. Anything the reader can see by looking at the line you anchored to.
 
-**2. Say what the code is doing before you say what is wrong with it.**
+When a finding genuinely needs more — an intricate race, a multi-step reproduction — keep the
+comment inside the cap and put the rest in a collapsed block:
 
-Do not open with the defect. Open with one or two sentences describing what this code is for
-and how it currently behaves. The reader may have written it a week ago, or may have inherited
-it. Either way, establishing shared ground first makes the rest land.
+```markdown
+<details><summary>Full reproduction</summary>
 
-**3. Explain why it matters in terms of what a person experiences.**
+1. …
+2. …
 
-Not "this violates the single-responsibility principle." Instead: what breaks, for whom, when.
-A user sees a stuck button. A digest takes eight seconds instead of one. An uninvited person
-reaches data they should not see. Abstract principle is the weakest possible motivation.
-
-**4. Give concrete steps where behaviour is involved.**
-
-If the problem shows up by doing something, number the steps. "Click Continue with GitHub →
-land on the permission screen → press Back → the button is greyed out and won't respond" beats
-any amount of prose about state flags.
-
-**5. Never reference something the reader cannot see.**
-
-No bare issue numbers, commit hashes, or pull request numbers. If you mention `#197`, say what
-`#197` was about in the same sentence. If you mention a commit, say what it did. If you mention
-a project convention, quote it and say where it is written down.
-
-**6. Make the recommendation something they can act on immediately.**
-
-Ideally code they can paste. At minimum, a specific instruction naming the file and what to
-change. "Consider refactoring for clarity" is not a recommendation.
-
-**7. Write short sentences in the active voice.**
-
-Break up anything over about 25 words. Prefer "the loop runs once per repository" to "a
-per-repository iteration is performed."
-
-**8. Never imply the author was careless.**
-
-Explain how the mistake happens rather than that it was made. "This looked safe because the
-page was expected to be gone for good" is accurate, generous, and more useful than "the flag
-was obviously never reset."
-
----
-
-## Shape of a good comment
-
-```
-<label> (<decoration>): <one plain sentence saying what is wrong>
-
-<1-2 sentences: what this code does and how it currently behaves>
-
-<the problem, in ordinary words, with any technical term explained on first use>
-
-<why it matters — what a person actually experiences>
-
-<numbered reproduction steps, when behaviour is involved>
-
-**Recommendation:** <something they can paste or directly follow>
+</details>
 ```
 
-Not every comment needs every part. A nitpick about a variable name does not need
-reproduction steps. Use judgement — but never skip "why it matters."
+GitHub renders that collapsed. The review stays scannable and the depth is one click away.
 
 ---
 
-## Worked examples
+## What the reader does not know
 
-### Too technical
+They can read code. They cannot read your mind. They do not know your shorthand — N+1, bfcache,
+CSRF, idempotent, race condition, hydration, trust boundary — and they do not know why this
+codebase does things a particular way, or what a referenced issue number was about.
 
-> `signingIn` is set to `true` before the redirect and is only cleared inside the `if (error)`
-> branch. On the success path Better Auth does a cross-origin document navigation, so the flag
-> is never reset. The page is bfcache-eligible and SvelteKit's bfcache hook only resets
-> `navigating` — it does not re-mount components or reset `$state`.
+**Explain a term in the same breath, in about six words, then name it.** Not a paragraph.
 
-Every sentence is true. A junior engineer cannot act on it. "Cross-origin document
-navigation," "bfcache-eligible," "re-mount," and "`$state`" are four unexplained concepts in
-three sentences.
+> Browsers keep recent pages in memory so Back feels instant — the "back/forward cache".
 
-### Rewritten
+> One database request per repository instead of one for all of them — an "N+1 query".
 
-> When someone clicks "Continue with GitHub", the code sets a flag called `signingIn` to true.
-> That flag greys out the button and shows a spinner, so nobody can click twice while the
-> browser is redirecting.
->
-> The flag is only set back to false if the sign-in call returns an error. On the normal path
-> the browser leaves for github.com and the flag is never reset — which looked safe, because
-> the page was expected to be gone for good.
->
-> Browsers, though, keep recently-visited pages in memory so that pressing Back feels instant.
-> This is called the back/forward cache. When a page is restored this way it comes back exactly
-> as it was left, including `signingIn` still set to true.
->
-> 1. Click "Continue with GitHub"
-> 2. Land on GitHub's permission screen
-> 3. Realise it is the wrong account and press Back
-> 4. The sign-in page is back, but the button is greyed out with a spinner and will not respond
->
-> Only a page refresh clears it.
+Naming it after explaining teaches the term without gatekeeping the fix behind it.
 
 ---
 
-### Too technical
+## Shape
 
-> The guard's role-scoped query creates a seam: an anchor-shaped hatch evades both the negative
-> assertion and the positive test's name regex, so no strict-mode multiple-match failure fires.
+```
+<label> (<decoration>): <one sentence saying what is wrong>
 
-### Rewritten
+<what the code does now, and what goes wrong — 2-4 sentences>
 
-> This test checks that a "Continue with GitHub" **button** does not appear on the landing page.
-> It looks for the element by its role — specifically a button.
->
-> If someone later added the same thing as a link instead of a button, this test would still
-> pass, because a link is a different role. The test would report everything as fine while the
-> exact thing it exists to prevent had come back.
+<what a person experiences, if it is not already obvious>
 
----
+**Fix:** <pasteable code, or one specific instruction>
+```
 
-### Too technical
-
-> PR exceeds the 300-change ceiling; the overage accrued from review-response commits post-dating
-> the initial push, with no exception recorded per the established form.
-
-### Rewritten
-
-> This project caps pull requests at 300 changed lines — insertions and deletions added together,
-> as GitHub reports them in the diff. It is written down in `docs/internal-context.md`: "Every
-> pull request must come in under 300 changes." This one is 338.
->
-> Worth knowing: it was not over the limit when you opened it. The first commit was 191 changes.
-> It went over while you were responding to review feedback, and nothing re-checks the total at
-> that point.
->
-> The project does allow exceptions, recorded in the pull request description. An earlier commit
-> shows the format: "Size approved as exception: 373 total changed lines, but ~150 are pure
-> indentation shifts."
+Not every comment needs every part. A nitpick about a name needs two lines.
 
 ---
 
-## Before you submit a finding, check
+## Rules
 
-- Would someone who joined this team last week understand every sentence?
-- Is there a term in here I have not explained?
-- Have I said what the code *does* before saying what is wrong?
-- Have I said why it matters in terms of what someone experiences?
-- Can they act on the recommendation without asking a follow-up question?
-- Have I referenced any issue, commit, or convention without saying what it is?
+1. **Say what the code does before what is wrong with it.** One clause is usually enough.
+2. **State the consequence as something a person experiences** — a stuck button, an eight-second
+   digest, a stranger reaching private data. Never "violates the single-responsibility principle".
+3. **Never reference something the reader cannot see.** No bare issue numbers or commit hashes. If
+   you mention `#197`, say what it was in the same sentence.
+4. **Make the fix pasteable.** "Consider refactoring for clarity" is not a fix.
+5. **Short sentences, active voice.** Break anything over about 25 words.
+6. **Never imply carelessness.** Explain how the mistake happens, not that it was made. "This
+   looked safe because the page was expected to be gone" is accurate, generous, and shorter than
+   the alternative.
 
-If any answer is wrong, rewrite it. Length is not the enemy — a comment twice as long that
-lands is worth far more than a terse one that gets ignored or misread.
+---
+
+## Worked example
+
+Same finding, written badly and written well.
+
+**Too long — 250 words.** Opens with internals, proves itself at length, then finally says what
+to do:
+
+> `signingIn` is set to `true` before the redirect and is only ever cleared inside the `if
+> (error)` branch. On the success path Better Auth's `redirectPlugin` completes with
+> `window.location.href`, a real cross-origin document navigation… nothing disqualifies the page
+> from bfcache — no `Cache-Control: no-store`, and posthog binds `pagehide` rather than the older
+> `unload`… SvelteKit's own handler at `client.js:2895` only nulls the `navigating` store…
+> *(…four numbered repro steps, then the fix)*
+
+Every sentence is true. None of it is the author's problem — it is the verifier's working.
+
+**Right — 95 words:**
+
+> **issue (non-blocking): Pressing Back from GitHub leaves the button stuck**
+>
+> `signingIn` is set true on click and only reset when the call errors. On success the browser
+> leaves for github.com, so it is never reset — which looked safe, because the page was expected
+> to be gone.
+>
+> But browsers keep recent pages in memory so Back feels instant, and restore them exactly as
+> they were. Click → GitHub → press Back → the button is greyed out and will not respond. Only a
+> refresh clears it.
+>
+> **Fix:** reset on `pageshow` when `event.persisted` is true. `signup/+page.svelte` has the same
+> gap.
+
+---
+
+## Before you submit
+
+- Is it under 150 words?
+- Would someone who joined last week understand every sentence?
+- Any term I have not explained?
+- Have I said what the code *does* before what is wrong?
+- Is the fix pasteable?
+- Am I proving the finding rather than delivering it?
+
+The last one is the common failure. If a paragraph exists to convince the reader you are right,
+cut it — verification already did that job.

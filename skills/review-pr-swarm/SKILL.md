@@ -56,17 +56,17 @@ be before it reaches the pull request.
 
 | Depth | Reviewers | Reports | Roughly |
 |-------|-----------|---------|---------|
-| **Quick** | correctness, security, pr-hygiene, docs-drift | critical and high only | ~7 agents |
-| **Standard** | the above plus performance, standards, test-quality | critical, high, medium — no nitpicks | ~13 agents |
-| **Full** | all ten, adding requirements, data-compat, prior-feedback | everything, including nitpicks and questions | ~19 agents |
+| **Quick** | correctness, security, pr-hygiene, docs-drift | critical and high only | ~6 agents |
+| **Standard** | the above plus performance, standards, test-quality | critical, high, medium — no nitpicks | ~11 agents |
+| **Full** | all ten, adding requirements, data-compat, prior-feedback | everything, including nitpicks and questions | ~15 agents |
 
 Phrase the question in plain English. Something like:
 
 > **Which review?**
-> - **Quick** — 4 reviewers, ~7 agents. Only blockers and high-severity problems get posted.
+> - **Quick** — 4 reviewers, ~6 agents. Only blockers and high-severity problems get posted.
 >   Right for a small, low-risk change.
-> - **Standard** — 7 reviewers, ~13 agents. Real issues but no nitpicks. Right for most PRs.
-> - **Full** — all 10 reviewers, ~19 agents. Everything down to nitpicks and style. Right before
+> - **Standard** — 7 reviewers, ~11 agents. Real issues but no nitpicks. Right for most PRs.
+> - **Full** — all 10 reviewers, ~15 agents. Everything down to nitpicks and style. Right before
 >   a release, or on anything touching auth, migrations, or money.
 
 Guidance to offer if the user asks which to pick: anything touching authentication, database
@@ -259,7 +259,14 @@ otherwise.
 ## Step 4 — Launch the panel
 
 Launch **all selected reviewers in a single message** so they run concurrently — one `Agent`
-tool call per reviewer, all in the same response. Use the `general-purpose` agent type.
+tool call per reviewer, all in the same response. Use the `general-purpose` agent type and
+**`model: sonnet`**.
+
+Reviewers run on the cheaper model deliberately. Their work is searching and reading — find the
+relevant code, notice something looks wrong, write it down. Deciding whether a plausible-sounding
+finding is *actually true* is the hard call, and that happens in verification, which stays on the
+strong model. A measured run put reviewers at roughly 530k tokens of a 940k total, so this is the
+single largest saving available and it costs no coverage: the same agents do the same work.
 
 Each agent's prompt instructs it to read two files before doing anything else:
 
@@ -518,9 +525,27 @@ unread.
 **This is the step that makes the swarm usable. Do not skip it, and do not skip it for
 low-severity findings.**
 
-Launch one verifier agent per finding that survived step 6, batched in parallel — several `Agent` calls per
-message. Use the `general-purpose` agent type with the contents of `verifier.md` as the
-prompt, plus the finding itself.
+Use the `general-purpose` agent type with the contents of `verifier.md` as the prompt, and
+**keep verifiers on the session's strong model** — this is the judgement the design rests on and
+the wrong place to economise.
+
+**Split the findings by severity, and treat the two groups differently:**
+
+- **`critical` and `high` — one verifier each.** Being wrong about a blocking finding is the most
+  expensive mistake the panel can make, so these keep their own independent skeptic.
+- **`medium` and below — batch four per verifier.** Give one agent four findings and have it
+  return a verdict for each.
+
+On a typical Standard run that turns eight verifier agents into three or four. The trade is real
+and worth naming: findings verified in one context can influence each other, and independent
+skeptics per finding is part of why roughly half of all findings get refuted. Batching only the
+non-blocking ones keeps that independence where being wrong actually costs something.
+
+When batching, tell the agent explicitly: *"Verify each finding independently against the code.
+Do not let your verdict on one influence another. Return a separate VERDICT and REASON block per
+finding, in the order given."*
+
+Launch all verifier agents in a single message so they run concurrently.
 
 The verifier's job is to **refute** the finding. It reads the actual code, not the summary,
 and returns `VERDICT: refuted` or `VERDICT: stands` with a one-line reason. It is instructed
@@ -563,7 +588,8 @@ Reviewers are specialists, and specialists write for other specialists. Left alo
 findings that are correct and unreadable — "the page is bfcache-eligible and SvelteKit's hook
 only resets `navigating`" is a real sentence a reviewer wrote about a stuck button.
 
-Launch **one** editor agent. Not one per finding — one for the whole review. Give it
+Launch **one** editor agent on **`model: sonnet`** — it is applying an explicit written style
+guide, not making judgement calls. Not one per finding — one for the whole review. Give it
 `editor.md` as its prompt, followed by every finding that survived verification in step 7, in the block format
 they arrived in.
 
